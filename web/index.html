@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Portle · Guess the arena</title><link rel="stylesheet" href="/style.css"></head>
+<body>
+<header><a href="/" class="brand"><span>◈</span> PORTLE<small>THE PORTAL PLACEMENT GAME</small></a><span class="local-tag">LOCAL PLAYTEST <i></i> DISCORD BOT PREVIEW</span></header>
+<main>
+  <section class="game-intro"><p class="eyebrow">YOU KNOW THE ROUTES. DO YOU KNOW THE MAP?</p><h1>One arena. A few portals.</h1><p>Guess the map from its portal placements. Every miss brings more of the network into view.</p><div class="tabs"><button id="daily" class="active">Daily puzzle</button><button id="practice">Practice ↗</button><span id="day"></span></div></section>
+  <div class="game-layout">
+    <section class="board"><div class="board-top"><span id="round-label">DAILY ROUND</span><button id="projection" aria-label="Change clue view">Top view ⤢</button></div><img id="clue" alt="Portal placements for the current clue"><div class="board-bottom"><span><i class="mint"></i> Earlier portals</span><span><i class="amber"></i> New this turn</span><span>Real game assets · no map textures</span></div></section>
+    <aside>
+      <div class="turn-heading"><p class="eyebrow" id="clue-title">CLUE 1 / 6</p><span id="portal-count">1 portal revealed</span></div>
+      <div id="turns" class="turns" aria-label="Guess progress"></div>
+      <h2 id="status">Name that arena.</h2><p id="instruction">Start with a hunch. You have six guesses.</p>
+      <form id="guess-form"><label for="guess">MAP NAME</label><input id="guess" list="maps" placeholder="Type or choose a map…" autocomplete="off" maxlength="80" required><datalist id="maps"></datalist><button id="guess-button" class="primary">Make a guess <span>↗</span></button></form>
+      <button id="skip" class="secondary">Reveal more portals <span>Uses one guess</span></button>
+      <p id="error" role="status"></p><div id="history"></div>
+      <div id="result" hidden><pre id="share-text"></pre><button id="copy" class="primary">Copy spoiler-free result</button></div>
+      <details class="how-to"><summary>How to play</summary><p>Each wrong guess or skip reveals more portals: 1 → 2 → 4 → 8 → 16 → all. The sixth clue is your last chance.</p><p>Switching between top and isometric views is free. Invalid or repeated map names do not cost a guess.</p><p id="reset-note"></p><p>In Discord, play privately with <code>/portle play</code>. Share posts only the score and squares.</p></details>
+      <div class="stats"><span><strong id="played">0</strong>PLAYED</span><span><strong id="wins">0</strong>WINS</span><span><strong id="streak">0</strong>STREAK</span></div>
+    </aside>
+  </div>
+  <footer>This preview uses the same game engine and clue images as the Discord bot. Discord credentials are configured separately.</footer>
+</main><script src="/app.js" type="module"></script>
+</body></html>

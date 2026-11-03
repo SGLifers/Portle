@@ -91,12 +91,13 @@ class GameStore:
             if not isinstance(version,int) or isinstance(version,bool) or state['version']!=version:raise GameError('That clue is out of date. Reopen the round before guessing again.')
             resolved=None
             if not skip:
-                try:resolved=self.catalog.resolve(guess or '')
-                except ValueError as exc:raise GameError(str(exc)) from exc
                 # A frozen daily snapshot remains answerable after a catalog update.
                 from .catalog import normalize
                 answer=state['puzzle']['map']
                 if normalize(guess or '') in {normalize(n) for n in [answer['name'],*answer.get('aliases',[])]}:resolved=answer
+                else:
+                    try:resolved=self.catalog.resolve(guess or '')
+                    except ValueError as exc:raise GameError(str(exc)) from exc
             apply_action(state,resolved,skip)
             db.execute('UPDATE rounds SET state=? WHERE id=?',(json.dumps(state),round_id))
             if event_id:db.execute('INSERT INTO events VALUES (?,?,?)',(user_id,str(event_id),round_id))
