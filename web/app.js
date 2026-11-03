@@ -20,6 +20,6 @@ $('daily').onclick=()=>perform(()=>api('/api/start',{mode:'daily'}));
 $('practice').onclick=()=>perform(()=>api('/api/start',{mode:'practice'}));
 $('guess-form').onsubmit=event=>{event.preventDefault();const guess=$('guess').value.trim();if(guess)perform(()=>api('/api/action',{id:round.id,version:round.version,guess,eventId:crypto.randomUUID()}));};
 $('skip').onclick=()=>perform(()=>api('/api/action',{id:round.id,version:round.version,skip:true,eventId:crypto.randomUUID()}));
-$('projection').onclick=()=>{if(!round)return;projection=projection==='iso'?'top':'iso';$('projection').textContent=projection==='iso'?'Top view ⤢':'Isometric view ⤢';render();};
+$('projection').onclick=()=>{if(!round)return;const guess=$('guess').value;projection=projection==='iso'?'top':'iso';$('projection').textContent=projection==='iso'?'Top view ⤢':'Isometric view ⤢';render();$('guess').value=guess;};
 $('copy').onclick=async()=>{try{await navigator.clipboard.writeText(round.share);$('copy').textContent='Copied ✓';setTimeout(()=>$('copy').textContent='Copy spoiler-free result',1800);}catch{$('error').textContent='Select and copy the result above.';}};
 try{const info=await api('/api/info');$('day').textContent=info.day;$('reset-note').textContent=`A new daily puzzle arrives at midnight ${info.timezone}. Practice does not affect your daily record.`;for(const name of info.maps){const option=document.createElement('option');option.value=name;$('maps').append(option);}await perform(()=>api('/api/start',{mode:'daily'}));}catch(e){$('error').textContent=e.message;}

@@ -1,5 +1,4 @@
 """Render real portal apertures to anonymous Discord-ready PNG attachments."""
-from functools import lru_cache
 from io import BytesIO
 import math
 from pathlib import Path

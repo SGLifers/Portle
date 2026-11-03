@@ -31,6 +31,7 @@ class GameTests(unittest.TestCase):
     def test_correct_guess_ends_immediately(self):
         s=self.start();s=self.store.act(s['id'],'player',0,guess=s['puzzle']['map']['name'])
         self.assertEqual(s['status'],'won');self.assertEqual(s['version'],1);self.assertIn('1/6',share_text(s))
+        self.assertEqual(public_view(s)['turn'],1)
         with self.assertRaises(GameError):self.store.act(s['id'],'player',1,skip=True)
     def test_final_turn_can_win(self):
         s=self.start()

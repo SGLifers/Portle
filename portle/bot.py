@@ -168,7 +168,7 @@ class PortleCommands(app_commands.Group):
             'Top/isometric views show the same portals and do not use a guess.\n'
             f'Daily resets at midnight **{self.store.zone.key}**; everyone gets the same map with private progress.\n'
             '`/portle play` daily · `/portle practice` unlimited · `/portle guess` guess daily · `/portle maps` answer list · `/portle stats` records.\n'
-            'Only **Share result** or `/portle share` posts a score publicly; the map name is omitted. Buttons expire after 15 minutes; reopen with `/portle play`. Practice does not affect daily records.',ephemeral=True)
+            'Only **Share result** or `/portle share` posts a score publicly; the map name is omitted. Buttons expire after 15 minutes. Resume the daily with `/portle play`, or start fresh practice with `/portle practice`. Practice does not affect daily records.',ephemeral=True)
 
     async def on_error(self,interaction,error):
         original=getattr(error,'original',error)

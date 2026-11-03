@@ -1,22 +1,178 @@
-# Portle handoff — in progress, 2026-11-03
+# Portle handoff — 2026-11-03
 
-User requests a separate Wordle-style Discord game: guess the map from portal
-placements, revealing more portals after each failed guess until solved.
+## Outcome and user intent
 
-Repo: /home/lambchopper67/Documents/ChatGPT/Splitgate/Portle
-Branch: codex/portle. PortalAtlas remains independent/read-only.
+The user requested a separate Wordle-style Discord game: identify a Splitgate arena
+from portal placements, with more portals revealed after each wrong guess. The
+implementation is complete locally, with a playable browser preview and an offline
+validated Discord bot. **Discord is not connected**: no bot token was supplied,
+requested in chat or searched for. Activation requires the user's application,
+server installation and a token entered locally. See DISCORD_SETUP.md.
 
-Implementing: private daily puzzle per player, six guesses, progressive
-1/2/4/8/16/all portal clues, SQLite persistence, private Discord slash commands
-and buttons, spoiler-free shares, practice, stats and local browser preview.
-An optional user question asks daily vs shared-channel vs both; default is daily
-unless user steers otherwise. No Discord token was requested or searched for.
+An optional preference question offered daily per-player, shared channel, or both.
+No answer arrived during development. The implemented default is a shared daily
+map with private per-player progress, plus unlimited practice. Do not silently
+change this to a shared competitive channel round.
 
-Asset input: ../PortalAtlas/data/scenes/MAP_*.json. Import only real enabled
-portal walls with provenance. Exclude library features, HangmanR3 zone walls and
-Training from the default quiz pool. Private data goes under ignored data/.
+## Repository and boundaries
 
-No required code or validation is complete yet. Dependencies install in .venv;
-logs under .local/. Continue through functional implementation and verification,
-then document exact Discord setup and clearly distinguish offline validation
-from a live connection, which needs a user-owned bot token.
+- Repo: `/home/lambchopper67/Documents/ChatGPT/Splitgate/Portle`
+- Branch: `codex/portle`; independent Git repository, no remote configured.
+- Initial milestones: `14734a6` core rules, `bfb98d6` Discord and local playtest.
+  Use `git log` for the final verification/documentation commit.
+- Atlas: `/home/lambchopper67/Documents/ChatGPT/Splitgate/PortalAtlas`, read-only.
+  Its configurable cutaway work is already separate and committed (`3ba60e6`).
+- Do not modify/start/stop SplitgateHost, extraction workers, the game installation
+  or the Atlas server. Do not launch the game. At most four CPUs for this work.
+- Keep extracted assets, coordinates, SQLite progress, IDs, credentials, generated
+  images and `.venv` out of Git. No publication or hosting registration was done.
+
+## Running local services
+
+Portle browser preview is left running at **http://127.0.0.1:8742**, loopback only.
+At handoff its PID is **1195964**. `.local/preview.pid` records the current PID;
+`.local/preview.log` is its log. It runs this checkout's `.venv/bin/python -m portle
+preview --port 8742` as a detached subprocess. Verify `/proc/<pid>/cwd` and command
+line before stopping a process, as PIDs can be reused. Restart only Portle if code
+changes; it does not have hot reload. Preview progress persists separately in
+`.local/preview.sqlite3`.
+
+The existing Atlas continues at http://127.0.0.1:8741; it was not restarted. Its Git
+checkout was clean at verification. The preview browser tab is a deliverable and
+is left on practice clue 5, showing 16 portals. Opening/reloading the page starts
+or resumes the daily. The preview cookie's daily is still playing at clue 2 after
+one QA skip. A completed practice loss is also saved but does not affect stats.
+
+Screenshot: `.local/portle-preview.png` (full desktop page, practice, no answer).
+Screenshot and all preview state are intentionally untracked.
+
+## Setup and operation
+
+```bash
+cd /home/lambchopper67/Documents/ChatGPT/Splitgate/Portle
+./setup.sh
+.venv/bin/python -m portle doctor
+.venv/bin/python -m portle preview --port 8742
+```
+
+The existing isolated `.venv` uses Python 3.12.14 and contains the pinned direct
+dependencies `discord.py==2.7.1`, `Pillow==13.0.0`, `python-dotenv==1.2.4`.
+`setup.sh` accepts `--source` for an alternate Atlas scene directory. First setup
+can use `PORTLE_PYTHON=/path/to/python3`. It never changes the source exports.
+
+For Discord, edit a private local `.env` based on `.env.example`, then `./run.sh`.
+Use one bot process per database. Guild-only slash commands need `bot` and
+`applications.commands` scopes. Channel permissions: View Channels, Send Messages,
+Embed Links, Attach Files. No privileged intents, Administrator permission,
+message-content reading or public HTTP endpoint are needed. Keep the Discord
+Interactions Endpoint URL empty; this bot uses Gateway interactions.
+
+Default daily timezone: `UTC`; configure `PORTLE_TIMEZONE` before production play.
+Optional `DISCORD_GUILD_ID` syncs commands to one development server; otherwise
+commands sync globally. `PORTLE_CATALOG` and `PORTLE_DATABASE` override production
+paths. Shell environment variables take precedence over `.env`.
+
+Production files default to `data/catalog.json` and `data/portle.sqlite3`. SQLite
+stores the installation seed, daily snapshots, player IDs, guesses, event IDs and
+guild participation. Retain it to preserve schedules/stats. Use SQLite backup or
+stop/checkpoint before copying; never casually copy a live WAL database.
+
+## Data and rules
+
+Real source: `../PortalAtlas/data/scenes/MAP_*.json`. Imported **23 maps with 3,366
+enabled portal placements**. Of the 25 arena/training exports, Training (50 walls)
+and HangmanR3 (16 shared zone walls) are excluded. Shared Ozone/Graffiti libraries
+and creative/biome/simulation assets are also excluded. Coordinates, normals,
+right/up vectors, shapes and aperture dimensions come directly from the exports.
+Catalog data is private and ignored; rebuilding needs those exports. Test-only
+synthetic fixtures are isolated from the actual playable catalog.
+
+Rules: six guesses, clues reveal 1/2/4/8/16/all portals. A miss or skip advances one
+turn; invalid/repeated map names do not. Correct guesses finish immediately;
+six misses/skips lose. Finished rounds reveal the answer and full layout. Top and
+isometric views are free, using the same portal subset. A consistent frame covers
+the full portal layout. First clues are intentionally sparse. No textures,
+meshes, map labels or screenshots are used as clue inputs.
+
+Each installation shuffles its map pool using a private stored seed and cycles
+through all maps before repeating; daily portal order also uses a seed. Selection
+spreads later clues across real placements using farthest-point distance. Daily
+snapshots freeze map/order/catalog revision, surviving restarts and imports.
+Different installations have independent schedules. Midnight rollover closes
+unfinished previous daily rounds. Practice is separate and does not affect stats.
+
+Stats count completed daily games. Daily progress is global per Discord player
+across servers; leaderboards show overall daily stats for people who started a
+game in that guild. Only explicit Share actions post public, spoiler-free scores.
+
+## Implementation map
+
+- `portle/catalog.py`: import/filter/validate real scene data; normalized map names
+  and aliases (including Foregone/FD and Ozone). Catalog format version 1.
+- `portle/game.py`: pure rules, nested reveal counts, safe public DTOs, share text.
+  No hidden answer, map ID, raw coordinates or source names in active client DTOs.
+- `portle/store.py`: transactional SQLite, ownership, frozen snapshots, persistent
+  daily/practice rounds, stats, leaderboard. Version checks and interaction event
+  IDs protect against concurrent/stale/replayed submissions. Database mode 0600.
+- `portle/render.py`: Pillow 1100×760 PNGs of real apertures in top/iso view. Generic
+  attachment name, no answer in active image text or PNG metadata. Newly revealed
+  portals are amber; earlier portals mint. All layouts use actual coordinates.
+- `portle/bot.py`: `/portle` group with play/practice/guess/stats/leaderboard/share/
+  maps/help. Private ephemeral board with Guess modal, Skip, Projection and Share
+  buttons. Acknowledge interactions before rendering PNGs on a worker thread.
+  Importing this module never connects. Allowed mentions disabled.
+- `portle/preview.py`: loopback-only HTTP server, allowlisted static files, Host/
+  Origin validation, random HttpOnly/SameSite cookie, private ownership and
+  no-store responses. Private catalog/database files cannot be served.
+- `web/`: responsive dark mint UI, real clue PNGs, map datalist, progress/history,
+  result copy and local daily stats. No active solution in page/API payloads.
+- `portle/__main__.py`: import-assets, doctor (offline), bot, preview, render-sample.
+
+## Validation completed
+
+`./setup.sh` reran successfully: 23 maps / 3,366 portals. `doctor` generated the
+eight-command schema with SDK 2.7.1, UTC, `tokenConfigured: false`, and
+`networkConnectionAttempted: false`. Running `./run.sh` without a token exited 2
+with the intended local configuration message and made no Discord connection.
+
+**37 tests passed** with `.venv/bin/python -m unittest discover -s tests -v`
+(6.35 seconds in the final full run):
+
+- 19 game/store tests: turn limits, correct/final wins, aliases, invalid/duplicate
+  guesses, shared puzzle/private progress, four-worker concurrency, replay/stale
+  protection, restart, rollover/timezone, frozen catalog changes, practice, streaks
+  and map cycle coverage. An early win's public turn label is verified as 1/6.
+- 9 preview HTTP tests: anonymous DTOs/images, cookie ownership, invalid guesses,
+  progressive/stale image handling, loss/answer/share behavior, Host/Origin guards,
+  malformed actions and private-file denial.
+- 6 mocked Discord interaction tests: command schema/minimal intents, private
+  deferred board, anonymous attachment, owner check, skip edits, free projection,
+  finished controls and explicit public sharing.
+- 3 real-asset tests: all imported portal values match source exports, actual
+  aperture corners are finite, and all **46** full-layout PNGs (23×2 projections)
+  render with no metadata spoilers and below 2 MB.
+
+`node --check web/app.js` passed using the bundled Node executable at
+`/home/lambchopper67/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node`.
+
+Browser QA through the in-app browser: loaded real PNGs; invalid answer used no
+guess; skip increased clue; projection was free; typed answer survived projection
+switch; six skips showed answer/full layout and disabled play; result copied
+without answer; practice left daily stats unchanged; daily resumed after reload
+and preview restart. Checked 390×844 mobile layout: no horizontal overflow.
+Desktop full-page screenshot saved; no browser console errors/warnings observed.
+
+## Remaining activation checks and limits
+
+The code is ready for a user-configured bot. Live Discord connection, actual
+ephemeral image delivery, permissions, slash-command propagation and modal board
+updates have **not** been tested against a real application. Follow
+DISCORD_SETUP.md's server checklist after configuring the token locally. Do not
+claim a live bot is running based on offline mocks or the browser preview.
+
+Buttons expire after 15 minutes and after bot restarts. `/portle play` reopens the
+persistent daily. Practice state is stored, but old practice boards have no resume
+command; start another `/portle practice`. No automated daily channel posts,
+notifications, production hosting/service installation or shared-channel game
+mode were requested or enabled. Changing catalog/timezone can alter future daily
+puzzles; retain the private production DB and seed.

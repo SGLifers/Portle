@@ -1,6 +1,4 @@
 """Pure game rules. Client views never contain an unsolved answer or raw portals."""
-import hashlib
-import math
 import random
 
 MAX_TURNS=6
@@ -57,8 +55,9 @@ def share_text(state):
 
 
 def public_view(state):
+    turn=len(state['attempts'])+(state['status']=='playing')
     result={'id':state['id'],'version':state['version'],'mode':state['mode'],'day':state['puzzle']['day'],
-        'status':state['status'],'turn':min(MAX_TURNS,len(state['attempts'])+1),'maxTurns':MAX_TURNS,
+        'status':state['status'],'turn':max(1,min(MAX_TURNS,turn)),'maxTurns':MAX_TURNS,
         'portalCount':clue_count(state),'attempts':[{'name':a['name'],'kind':a['kind'],'correct':a['correct']} for a in state['attempts']]}
     if state['status']!='playing':result.update(answer=state['puzzle']['map']['name'],share=share_text(state))
     return result
