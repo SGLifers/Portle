@@ -16,5 +16,9 @@ raw coordinates and revealing filenames out of unsolved clue payloads. Share
 results without spoilers. Validate turn limits, restart persistence, concurrent
 interaction handling, private game ownership and daily rollover with tests.
 
+Discord daily completion now automatically posts a spoiler-free score with a
+persistent Play Portle button. Practice is Administrator-only and shares only
+when explicitly requested. Keep public result messages free of answers and clues.
+
 Commit milestones and keep handoff documentation current. At most four CPUs.
 Do not publish the game or proprietary assets as part of local development.

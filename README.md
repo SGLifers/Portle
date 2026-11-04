@@ -35,7 +35,7 @@ selection, image rotation or enforced portal-count progression.
 - Review previously revealed images freely. Invalid/repeated map names are free.
 - A correct guess or six misses ends the round and unlocks all screenshots.
 - Unlimited admin practice in Discord, daily stats/streaks and guild participant leaderboards.
-- Explicit, spoiler-free sharing; guesses and clue boards stay private in Discord.
+- Daily results post automatically with a Play Portle button; guesses and clue boards stay private.
 
 The bundled answer roster contains 23 maps. Only published maps enter the puzzle
 rotation, but the full roster remains available for guessing. One ready set is
@@ -73,7 +73,7 @@ accepted names remain available, including maps without published clues.
 Discord shows Previous/Next maps controls if more than 25 unguessed names remain;
 browsing these pages is free. The optional `/portle guess map_name` command
 still supports autocomplete. Earlier/Later clue buttons revisit unlocked
-screenshots. Share result also supports practice. Controls expire after
+screenshots. Share result also supports practice. Private board controls expire after
 15 minutes or a bot restart; `/portle play` restores the daily, while practice
 requires starting a new round. No ordinary chat-message reading is needed.
 
@@ -82,6 +82,22 @@ role name alone does not grant access. Both the command and practice board
 controls check current permissions. Members can still play the daily puzzle, and
 denied practice requests respond privately. The loopback browser preview remains
 an owner playtest/editor without Discord accounts or roles.
+
+Finishing a daily puzzle (win or loss) automatically posts your score and colored
+squares in the channel where you finished. The post identifies the player without
+pinging them and contains no answer, guesses or clue images. **Play Portle** on
+the post opens or resumes the clicking player's own private daily puzzle, without
+a slash command. This public button survives bot restarts and always opens
+today's puzzle, even on older posts. The bot must be running for buttons to work.
+Practice does not auto-post; admins can still explicitly share its score.
+
+Automatic posts are reserved in SQLite to prevent duplicates from replayed or
+concurrent interactions and restarts. Reopening completed boards does not post
+again or backfill older results. **Share result** and `/portle share` remain
+explicit ways to post again, with the same Play button. If a send fails or its
+outcome is uncertain, the bot preserves the game and gives private retry guidance;
+check the channel before manually sharing. Interrupted sends are not automatically
+retried, to avoid duplicate public messages.
 
 ## Data and configuration
 

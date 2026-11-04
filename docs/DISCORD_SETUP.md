@@ -68,13 +68,20 @@ Ctrl+C stops the bot safely; restarting resumes daily progress from SQLite.
 4. As a server administrator, use `/portle practice` for a disposable round.
    Finish it using guesses or skips;
    check that the answer appears and all six screenshots can be viewed at the end.
-5. Deliberately select **Share result** to post its colored-square result to the
-   channel. It should contain no arena name or clue image.
-6. Restart the bot and reopen `/portle play` to confirm daily continuity. Check the
-   round independently with a second player if available.
+5. Finish a daily round. Confirm one public score post with colored squares and
+   **Play Portle**, with no arena name, guesses or clue image. Practice does not
+   auto-post; admins can explicitly use **Share result** for practice scores.
+6. Have another member click **Play Portle**. It must open that member's own
+   private daily board without changing the public post or anyone else's round.
+7. Restart the bot. The public Play button should still work; clicking a result
+   on a later day starts that day's daily. Reopening a completed daily does not
+   create another automatic result post. Check continuity with `/portle play`.
 
-All normal game commands respond privately. The explicit Share button and
-`/portle share` post publicly. Guessing with `/portle guess` always targets the
+Clues, guesses and normal game feedback remain private. A finished daily
+automatically posts the player's spoiler-free score in its finishing channel.
+The explicit Share button and `/portle share` post another public score, also
+with Play Portle. Player attribution does not send a mention notification.
+Guessing with `/portle guess` always targets the
 daily round; use the board's dropdown for practice guesses. The dropdown lists
 unguessed names alphabetically, including maps without published clues. Guessed
 maps disappear from the current round's dropdown, including after resuming the
@@ -88,6 +95,15 @@ clue review and sharing. Daily play remains available to ordinary members. This
 restriction does not require granting the bot Administrator. Discord may still
 show the practice subcommand to members; the bot enforces permission before
 creating a round. The local browser playtest has no Discord roles.
+
+Automatic result delivery is reserved in SQLite before sending to prevent duplicate
+posts from concurrent/replayed interactions or restarts. A failed or uncertain send
+is not retried automatically. The private board and scores remain saved; check
+whether the result appeared before using Share result or `/portle share` to retry.
+Check **View Channels** and **Send Messages** in the finishing channel if posting
+fails; threads also require **Send Messages in Threads**. No extra privileged
+intents are required. Old completed rounds are not automatically announced on
+startup, and Play buttons require the bot to be online.
 
 ## Keep it running
 

@@ -38,12 +38,50 @@ def round_embed(state,projection,clue_index=None):
     return embed
 
 
-async def show_round(interaction,store,state,projection='iso',replace=False,clue_index=None):
+def result_message(state):
+    return f"<@{state['user_id']}>\n"+share_text(state)
+
+
+async def post_daily_result(interaction,store,state):
+    if state['mode']!='daily' or state['status']=='playing':return
+    if not await asyncio.to_thread(store.claim_result_post,state['id'],interaction.user.id):return
+    try:
+        if interaction.guild_id is None or interaction.channel is None:raise GameError('A server channel is required.')
+        message=await interaction.channel.send(result_message(state),view=PlayPortleView(store),allowed_mentions=discord.AllowedMentions.none())
+    except (discord.HTTPException,OSError,GameError) as error:
+        await asyncio.to_thread(store.record_result_post,state['id'])
+        logging.getLogger(__name__).warning('Automatic result post failed: %s',type(error).__name__)
+        return await report_error(interaction,'Your result is saved, but the public result post could not be confirmed. Check whether it appeared, then use Share result or /portle share to retry if needed.')
+    await asyncio.to_thread(store.record_result_post,state['id'],message.id)
+
+
+async def show_round(interaction,store,state,projection='iso',replace=False,clue_index=None,announce=False):
     if not interaction.response.is_done():await interaction.response.defer(ephemeral=True,thinking=not replace)
-    image=await asyncio.to_thread(store.image,state,projection,clue_index)
-    await interaction.edit_original_response(content=None,embed=round_embed(state,projection,clue_index),
-        attachments=[discord.File(BytesIO(image),filename='portle-clue.png')],
-        view=RoundView(store,state,projection,clue_index),allowed_mentions=discord.AllowedMentions.none())
+    try:
+        image=await asyncio.to_thread(store.image,state,projection,clue_index)
+        await interaction.edit_original_response(content=None,embed=round_embed(state,projection,clue_index),
+            attachments=[discord.File(BytesIO(image),filename='portle-clue.png')],
+            view=RoundView(store,state,projection,clue_index),allowed_mentions=discord.AllowedMentions.none())
+    finally:
+        if announce:await post_daily_result(interaction,store,state)
+
+
+class PlayPortleView(discord.ui.View):
+    def __init__(self,store):
+        super().__init__(timeout=None);self.store=store
+
+    @discord.ui.button(label='Play Portle',style=discord.ButtonStyle.success,custom_id='portle:play-daily:v1')
+    async def play_button(self,interaction,button):
+        if interaction.guild_id is None:return await report_error(interaction,'Play Portle in a server to open your private daily puzzle.')
+        await interaction.response.defer(ephemeral=True,thinking=True)
+        try:
+            state=await asyncio.to_thread(self.store.start,interaction.user.id,guild_id=interaction.guild_id)
+            await show_round(interaction,self.store,state)
+        except GameError as error:await report_error(interaction,str(error))
+
+    async def on_error(self,interaction,error,item):
+        logging.getLogger(__name__).error('Play button failed: %s',type(error).__name__)
+        await report_error(interaction,'Could not open your puzzle. Your progress is saved; try Play Portle again or /portle play.')
 
 
 class MapGuessSelect(discord.ui.Select):
@@ -57,7 +95,7 @@ class MapGuessSelect(discord.ui.Select):
         await interaction.response.defer(ephemeral=True,thinking=False)
         try:
             state=await asyncio.to_thread(self.board.store.act,self.board.round_id,interaction.user.id,self.board.version,guess=self.values[0],event_id=str(interaction.id))
-            await show_round(interaction,self.board.store,state,self.board.projection,replace=True)
+            await show_round(interaction,self.board.store,state,self.board.projection,replace=True,announce=True)
         except GameError as exc:await report_error(interaction,str(exc))
 
 
@@ -114,7 +152,7 @@ class RoundView(discord.ui.View):
         await interaction.response.defer(ephemeral=True,thinking=False)
         try:
             state=await asyncio.to_thread(self.store.act,self.round_id,interaction.user.id,self.version,skip=True,event_id=str(interaction.id))
-            await show_round(interaction,self.store,state,self.projection,replace=True)
+            await show_round(interaction,self.store,state,self.projection,replace=True,announce=True)
         except GameError as exc:await report_error(interaction,str(exc))
 
     @discord.ui.button(label='Top view',style=discord.ButtonStyle.secondary,row=2)
@@ -138,9 +176,9 @@ class RoundView(discord.ui.View):
     @discord.ui.button(label='Share result',style=discord.ButtonStyle.primary,row=2)
     async def share_button(self,interaction,button):
         state=await asyncio.to_thread(self.store.get,self.round_id,interaction.user.id)
-        try:result=share_text(state)
+        try:result=result_message(state)
         except GameError as exc:return await report_error(interaction,str(exc))
-        await interaction.response.send_message(result,allowed_mentions=discord.AllowedMentions.none())
+        await interaction.response.send_message(result,view=PlayPortleView(self.store),allowed_mentions=discord.AllowedMentions.none())
 
     async def on_error(self,interaction,error,item):
         logging.getLogger(__name__).error('Board action failed: %s',type(error).__name__)
@@ -172,7 +210,7 @@ class PortleCommands(app_commands.Group):
         try:
             state=await asyncio.to_thread(self.store.start,interaction.user.id,guild_id=interaction.guild_id)
             state=await asyncio.to_thread(self.store.act,state['id'],interaction.user.id,state['version'],guess=map_name,event_id=str(interaction.id))
-            await show_round(interaction,self.store,state)
+            await show_round(interaction,self.store,state,announce=True)
         except GameError as exc:await report_error(interaction,str(exc))
 
     @guess.autocomplete('map_name')
@@ -196,9 +234,9 @@ class PortleCommands(app_commands.Group):
     @app_commands.command(description='Share your finished daily score without revealing the map')
     async def share(self,interaction:discord.Interaction):
         state=await asyncio.to_thread(self.store.start,interaction.user.id,guild_id=interaction.guild_id)
-        try:result=share_text(state)
+        try:result=result_message(state)
         except GameError as exc:return await report_error(interaction,str(exc))
-        await interaction.response.send_message(result,allowed_mentions=discord.AllowedMentions.none())
+        await interaction.response.send_message(result,view=PlayPortleView(self.store),allowed_mentions=discord.AllowedMentions.none())
 
     @app_commands.command(description='List all map names accepted by the game')
     async def maps(self,interaction:discord.Interaction):
@@ -213,7 +251,7 @@ class PortleCommands(app_commands.Group):
             +
             f'Daily resets at midnight **{self.store.zone.key}**; everyone gets the same map with private progress.\n'
             '`/portle play` daily · `/portle practice` admins only · `/portle guess` guess daily · `/portle maps` answer list · `/portle stats` records.\n'
-            'Only **Share result** or `/portle share` posts a score publicly; the map name is omitted. Buttons expire after 15 minutes. Resume the daily with `/portle play`. Server administrators can start fresh practice with `/portle practice`; practice does not affect daily records.',ephemeral=True)
+            'Finishing a daily automatically posts your score and squares in this channel, without the map name or clues. Anyone can use **Play Portle** on a result to open their own private daily. **Share result** or `/portle share` can post a score again. Practice does not auto-post. Private board controls expire after 15 minutes; public Play buttons survive restarts. Resume the daily with `/portle play`. Server administrators can start fresh practice with `/portle practice`; practice does not affect daily records.',ephemeral=True)
 
     async def on_error(self,interaction,error):
         original=getattr(error,'original',error)
@@ -231,7 +269,7 @@ class PortleClient(discord.Client):
     def __init__(self,store,guild_id=None):
         intents=discord.Intents.none();intents.guilds=True
         super().__init__(intents=intents,allowed_mentions=discord.AllowedMentions.none())
-        self.tree=app_commands.CommandTree(self);self.tree.add_command(PortleCommands(store));self.guild_id=guild_id
+        self.tree=app_commands.CommandTree(self);self.tree.add_command(PortleCommands(store));self.guild_id=guild_id;self.store=store
 
     async def setup_hook(self):
         try:
@@ -250,6 +288,7 @@ class PortleClient(discord.Client):
                 message+='Server installation link: '+discord.utils.oauth_url(self.application_id,permissions=permissions)+'\n'
             message+='After correcting access, run ./run.sh again. See docs/DISCORD_SETUP.md.'
             raise DiscordSetupError(message) from None
+        self.add_view(PlayPortleView(self.store))
         logging.getLogger(__name__).info('Registered %d command groups',len(commands))
 
     async def on_ready(self):logging.getLogger(__name__).info('Portle connected and ready')

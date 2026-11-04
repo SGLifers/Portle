@@ -61,6 +61,36 @@ class GameTests(unittest.TestCase):
             except GameError:return False
         with ThreadPoolExecutor(max_workers=4) as pool:results=list(pool.map(submit,range(12)))
         self.assertEqual(sum(results),1);self.assertEqual(self.store.get(s['id'],'player')['version'],1)
+    def test_automatic_result_claim_requires_finished_owned_daily(self):
+        state=self.start()
+        self.assertFalse(self.store.claim_result_post(state['id'],'player'))
+        with self.assertRaises(GameError):self.store.claim_result_post(state['id'],'other')
+        practice=self.store.start('player','practice')
+        practice=self.store.act(practice['id'],'player',0,guess=practice['puzzle']['map']['name'])
+        self.assertFalse(self.store.claim_result_post(practice['id'],'player'))
+    def test_automatic_result_claim_is_atomic_and_survives_restart(self):
+        state=self.start();self.store.act(state['id'],'player',0,guess=state['puzzle']['map']['name'])
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            claims=list(pool.map(lambda _:self.store.claim_result_post(state['id'],'player'),range(12)))
+        self.assertEqual(sum(claims),1)
+        other=GameStore(self.path,self.catalog,clock=lambda:self.now)
+        self.assertFalse(other.claim_result_post(state['id'],'player'))
+        other.record_result_post(state['id'],987)
+        with other.connection() as db:row=db.execute('SELECT * FROM result_posts').fetchone()
+        self.assertEqual(row['status'],'sent');self.assertEqual(row['message_id'],'987')
+        self.assertFalse(other.claim_result_post(state['id'],'player'))
+    def test_failed_result_post_is_not_automatically_retried(self):
+        state=self.start();self.store.act(state['id'],'player',0,guess=state['puzzle']['map']['name'])
+        self.assertTrue(self.store.claim_result_post(state['id'],'player'));self.store.record_result_post(state['id'])
+        with self.store.connection() as db:self.assertEqual(db.execute('SELECT status FROM result_posts').fetchone()['status'],'failed')
+        self.assertFalse(self.store.claim_result_post(state['id'],'player'))
+        self.assertEqual(self.store.get(state['id'],'player')['status'],'won')
+    def test_result_post_schema_upgrade_preserves_existing_progress(self):
+        state=self.start();self.store.act(state['id'],'player',0,skip=True)
+        with self.store.connection() as db:db.execute('DROP TABLE result_posts')
+        upgraded=GameStore(self.path,self.catalog,clock=lambda:self.now)
+        resumed=upgraded.start('player');self.assertEqual(resumed['id'],state['id']);self.assertEqual(resumed['version'],1)
+        with upgraded.connection() as db:self.assertEqual(db.execute('SELECT count(*) FROM result_posts').fetchone()[0],0)
     def test_foreign_owner_cannot_read_or_mutate(self):
         s=self.start('a')
         with self.assertRaises(GameError):self.store.get(s['id'],'b')

@@ -25,6 +25,7 @@ class GameStore:
                 CREATE TABLE IF NOT EXISTS rounds(id TEXT PRIMARY KEY,puzzle_id TEXT NOT NULL,user_id TEXT NOT NULL,mode TEXT NOT NULL,state TEXT NOT NULL,created_at TEXT NOT NULL,UNIQUE(puzzle_id,user_id));
                 CREATE TABLE IF NOT EXISTS events(user_id TEXT NOT NULL,event_id TEXT NOT NULL,round_id TEXT NOT NULL,PRIMARY KEY(user_id,event_id));
                 CREATE TABLE IF NOT EXISTS participants(guild_id TEXT NOT NULL,user_id TEXT NOT NULL,PRIMARY KEY(guild_id,user_id));
+                CREATE TABLE IF NOT EXISTS result_posts(round_id TEXT PRIMARY KEY,status TEXT NOT NULL,message_id TEXT);
                 CREATE INDEX IF NOT EXISTS round_owner ON rounds(user_id,mode);
             ''')
             db.execute('INSERT OR IGNORE INTO settings VALUES (?,?)',('seed',secrets.token_hex(32)))
@@ -84,6 +85,19 @@ class GameStore:
 
     def get(self,round_id,user_id):
         with self.connection() as db:return self._owned(db,round_id,user_id)
+
+    def claim_result_post(self,round_id,user_id):
+        """Reserve one automatic post across replays, processes and restarts."""
+        with self.transaction() as db:
+            state=self._owned(db,round_id,user_id)
+            if state['mode']!='daily' or state['status']=='playing':return False
+            return db.execute('INSERT OR IGNORE INTO result_posts VALUES (?,?,NULL)',(round_id,'pending')).rowcount==1
+
+    def record_result_post(self,round_id,message_id=None):
+        # Keep failed/uncertain attempts reserved: retry explicitly with /portle share.
+        with self.transaction() as db:
+            db.execute('UPDATE result_posts SET status=?,message_id=? WHERE round_id=? AND status=?',
+                ('sent' if message_id is not None else 'failed',str(message_id) if message_id is not None else None,round_id,'pending'))
 
     def image(self,state,projection='iso',clue=None):
         if state['puzzle'].get('clueSource')=='manual':

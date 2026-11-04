@@ -426,3 +426,57 @@ edits, bot restart, database changes or browser/Atlas changes were performed.
 User activation: Ctrl+C the existing bot, run `./run.sh` again, then test
 `/portle practice` with admin and ordinary member accounts. This restart also
 loads earlier dropdown changes if they have not yet been activated.
+
+## Automatic daily results and public Play button — 2026-11-04
+
+User authorized automatically posting finished results in Discord, with a button
+for others to play without slash commands. Daily wins/losses now post in the
+channel of the finishing interaction, after a dropdown guess, skip or slash guess.
+Result contains player attribution, date, score and colored squares only; no map
+names/IDs, guess names, images or coordinates. AllowedMentions.none prevents pings.
+Guesses, clue boards and all other ordinary feedback stay ephemeral. Admin-only
+practice does not auto-post; its existing explicitly requested sharing remains.
+
+PlayPortleView has timeout=None and stable custom ID portle:play-daily:v1.
+Successful PortleClient.setup_hook registers it for persistent dispatch, so all
+public Play buttons work after restart. Clicking defers a new ephemeral thinking
+response and starts/resumes the clicking user's current daily, without editing
+the public message or the finisher's round. It works for ordinary members, uses
+today's daily even on old posts, records guild participation, and does not create
+new practice or bypass admin checks. Missing-library/DM/errors are handled
+privately. Existing Share result and /portle share also include this button and
+player attribution; explicit re-sharing remains available.
+
+SQLite gains result_posts(round_id PRIMARY KEY,status,message_id) via automatic
+CREATE TABLE IF NOT EXISTS on startup. claim_result_post checks ownership and
+finished-daily status inside BEGIN IMMEDIATE, then reserves a pending row before
+sending. This prevents duplicate automatic sends from replays, concurrency,
+multiple store instances and restarts. Successful posts record sent/message ID;
+failed/uncertain sends remain reserved as failed (or pending after interruption).
+The bot gives private saved-score/manual retry guidance on HTTP/network errors.
+This deliberately favors avoiding duplicates over automatic retry of uncertain
+sends: check the channel before explicitly sharing again. A crash between saving
+the final turn and claiming/sending can require /portle share after restart.
+There is no announcement backlog or automatic post when reopening old finished
+boards. Private clue/render failure still permits posting the final score.
+
+Validation: `.venv/bin/python -m unittest discover -s tests -q` passed80 tests in
+8.468s. Eight new Discord tests plus four store tests cover persistent registration,
+member ownership/private opening, resume/day rollover, DM/missing-clue/error
+handling, win/loss auto-posts, replay suppression, explicit share buttons,
+spoiler-free/no-ping messages, HTTP/network failure privacy, private render failure,
+atomic claims under4 workers, restart persistence and schema upgrade preserving
+old progress. Existing dropdown tests now assert daily auto-post vs practice
+silence. Git whitespace checks passed. Official discord.py persistent-view example
+and interaction API consulted. README, setup guide, preview help and AGENTS updated.
+
+No live Discord messages, credential reads, bot restart, public deployment or
+production DB mutations were performed. All behavior tested using temporary
+databases and offline Discord mocks; live posting/button delivery remains to be
+confirmed after user activation. Existing user-managed bot and Atlas untouched.
+Activation: Ctrl+C the current bot, run `./run.sh`, then finish a daily or use
+`/portle share` on an already completed daily to create a public Play button.
+Another member should click it and see Only you can see this. Verify the button
+again after restarting the bot. It requires the bot online and normal channel
+send access; threads additionally need Send Messages in Threads. This does not
+require privileged intents or giving the bot Administrator.

@@ -1,4 +1,5 @@
 from io import BytesIO
+from datetime import timedelta
 from pathlib import Path
 import tempfile
 from types import SimpleNamespace
@@ -8,7 +9,7 @@ from urllib.parse import parse_qs,urlparse
 from PIL import Image
 import discord
 from discord import app_commands
-from portle.bot import DiscordSetupError,MapGuessSelect,PortleClient,RoundView,show_round
+from portle.bot import DiscordSetupError,MapGuessSelect,PlayPortleView,PortleClient,RoundView,post_daily_result,show_round
 from portle.catalog import Catalog
 from portle.store import GameStore
 from portle.clues import ClueLibrary
@@ -22,7 +23,7 @@ class Response:
 
 
 def interaction(user='11',*,administrator=False):
-    return SimpleNamespace(user=SimpleNamespace(id=int(user)),guild_id=22,id=101,permissions=discord.Permissions(administrator=administrator),response=Response(),edit_original_response=AsyncMock(),followup=SimpleNamespace(send=AsyncMock()))
+    return SimpleNamespace(user=SimpleNamespace(id=int(user)),guild_id=22,id=101,permissions=discord.Permissions(administrator=administrator),channel=SimpleNamespace(send=AsyncMock(return_value=SimpleNamespace(id=444))),response=Response(),edit_original_response=AsyncMock(),followup=SimpleNamespace(send=AsyncMock()))
 
 
 class DiscordTests(unittest.IsolatedAsyncioTestCase):
@@ -99,6 +100,89 @@ class DiscordTests(unittest.IsolatedAsyncioTestCase):
             with self.assertRaises(discord.HTTPException) as caught:await client.setup_hook()
             self.assertIs(caught.exception,error)
         await client.close()
+    async def test_public_play_button_is_registered_again_after_restart(self):
+        for _ in range(2):
+            client=PortleClient(self.store,guild_id=987)
+            with patch.object(client.tree,'sync',AsyncMock(return_value=[])):await client.setup_hook()
+            views=client.persistent_views;self.assertEqual(len(views),1)
+            self.assertTrue(views[0].is_persistent());self.assertIsNone(views[0].timeout)
+            self.assertEqual(views[0].play_button.custom_id,'portle:play-daily:v1')
+            await client.close()
+    async def test_public_play_button_opens_each_members_own_private_daily(self):
+        button=PlayPortleView(self.store)
+        for user in ['99','11']:
+            event=interaction(user);await button.play_button.callback(event)
+            self.assertEqual(event.response.flags,{'ephemeral':True,'thinking':True})
+            view=event.edit_original_response.call_args.kwargs['view']
+            state=self.store.get(view.round_id,user);self.assertEqual(state['mode'],'daily');self.assertEqual(state['user_id'],user)
+            self.assertEqual(state['puzzle'],self.state['puzzle'])
+            event.channel.send.assert_not_awaited()
+        self.assertEqual(self.store.get(self.state['id'],'11')['version'],0)
+    async def test_public_play_button_uses_current_day_and_resumes_without_reposting(self):
+        button=PlayPortleView(self.store)
+        done=self.store.act(self.state['id'],'11',0,guess=self.state['puzzle']['map']['name'])
+        event=interaction();await button.play_button.callback(event)
+        self.assertEqual(event.edit_original_response.call_args.kwargs['view'].round_id,done['id'])
+        event.channel.send.assert_not_awaited()
+        tomorrow=self.store.clock()+timedelta(days=1);self.store.clock=lambda:tomorrow
+        event=interaction();await button.play_button.callback(event)
+        view=event.edit_original_response.call_args.kwargs['view'];self.assertNotEqual(view.round_id,done['id'])
+        state=self.store.get(view.round_id,'11');self.assertEqual(state['puzzle']['day'],self.store.today().isoformat())
+        self.assertEqual(state['version'],0);event.channel.send.assert_not_awaited()
+    async def test_public_play_button_handles_missing_clues_and_dm_privately(self):
+        view=PlayPortleView(self.store);event=interaction();event.guild_id=None
+        await view.play_button.callback(event)
+        self.assertTrue(event.response.send_message.call_args.kwargs['ephemeral']);event.edit_original_response.assert_not_awaited()
+        event=interaction()
+        with self.assertLogs('portle.bot',level='ERROR') as logs:
+            await view.on_error(event,RuntimeError('private raw detail'),view.play_button)
+        self.assertNotIn('private raw detail',' '.join(logs.output))
+        self.assertNotIn('private raw detail',event.response.send_message.call_args.args[0])
+        event=interaction()
+        from portle.game import GameError
+        with patch.object(self.store,'start',side_effect=GameError('No manual clues are published yet.')):
+            await view.play_button.callback(event)
+        self.assertTrue(event.followup.send.call_args.kwargs['ephemeral'])
+    async def test_final_skip_posts_one_spoiler_free_result_with_play_button(self):
+        state=self.state
+        for version in range(5):state=self.store.act(state['id'],'11',version,skip=True)
+        view=RoundView(self.store,state);event=interaction();await view.skip_button.callback(event)
+        event.channel.send.assert_awaited_once();text=event.channel.send.call_args.args[0]
+        self.assertIn('<@11>',text);self.assertIn('X/6',text);self.assertIn('⬜'*6,text)
+        self.assertNotIn(state['puzzle']['map']['name'],text);self.assertNotIn(state['puzzle']['map']['id'],text)
+        kwargs=event.channel.send.call_args.kwargs
+        self.assertEqual(set(kwargs),{'view','allowed_mentions'});self.assertEqual(kwargs['allowed_mentions'].to_dict()['parse'],[])
+        self.assertTrue(kwargs['view'].is_persistent());self.assertEqual(kwargs['view'].play_button.label,'Play Portle')
+        replay=interaction();await view.skip_button.callback(replay);replay.channel.send.assert_not_awaited()
+        await show_round(replay,self.store,self.store.get(state['id'],'11'));replay.channel.send.assert_not_awaited()
+    async def test_slash_guess_posts_once_and_explicit_shares_have_play_buttons(self):
+        client=PortleClient(self.store);group=client.tree.get_command('portle');event=interaction()
+        await group.guess.callback(group,event,self.state['puzzle']['map']['name'])
+        event.channel.send.assert_awaited_once();self.assertIn('1/6',event.channel.send.call_args.args[0])
+        event=interaction();await group.share.callback(group,event)
+        self.assertTrue(event.response.send_message.call_args.kwargs['view'].is_persistent())
+        self.assertFalse(event.response.send_message.call_args.kwargs.get('ephemeral',False))
+        self.assertNotIn(self.state['puzzle']['map']['name'],event.response.send_message.call_args.args[0])
+        await client.close()
+    async def test_automatic_post_failure_preserves_result_and_gives_private_manual_retry(self):
+        error=discord.Forbidden(SimpleNamespace(status=403,reason='Forbidden'),{'code':50013,'message':'private raw detail'})
+        for index,failure in enumerate([error,OSError('private raw detail')]):
+            user=str(50+index);state=self.store.start(user)
+            state=self.store.act(state['id'],user,0,guess=state['puzzle']['map']['name'])
+            event=interaction(user);await event.response.defer(ephemeral=True);event.channel.send.side_effect=failure
+            with self.assertLogs('portle.bot',level='WARNING') as logs:await post_daily_result(event,self.store,state)
+            text=event.followup.send.call_args.args[0];self.assertIn('/portle share',text)
+            self.assertNotIn('private raw detail',text);self.assertNotIn('private raw detail',' '.join(logs.output))
+            self.assertTrue(event.followup.send.call_args.kwargs['ephemeral'])
+            restarted=GameStore(self.store.path,self.store.catalog)
+            self.assertEqual(restarted.get(state['id'],user)['status'],'won')
+            retry=interaction(user);await post_daily_result(retry,restarted,state);retry.channel.send.assert_not_awaited()
+    async def test_completed_score_posts_even_if_private_clue_rendering_fails(self):
+        from portle.game import GameError
+        state=self.store.act(self.state['id'],'11',0,guess=self.state['puzzle']['map']['name']);event=interaction()
+        with patch.object(self.store,'image',side_effect=GameError('Clue image missing.')):
+            with self.assertRaises(GameError):await show_round(event,self.store,state,announce=True)
+        event.channel.send.assert_awaited_once()
     async def test_cli_reports_setup_failure_cleanly_without_a_traceback(self):
         from contextlib import redirect_stderr
         from io import StringIO
@@ -136,6 +220,10 @@ class DiscordTests(unittest.IsolatedAsyncioTestCase):
                 updated=self.store.get(state['id'],'11');self.assertEqual(updated['status'],'won');self.assertEqual(updated['version'],1)
                 self.assertTrue(event.response.flags['ephemeral']);self.assertFalse(event.response.flags['thinking'])
                 self.assertTrue(event.edit_original_response.call_args.kwargs['view'].map_select.disabled)
+                if mode=='daily':
+                    event.channel.send.assert_awaited_once();text=event.channel.send.call_args.args[0]
+                    self.assertIn('1/6',text);self.assertNotIn(state['puzzle']['map']['name'],text)
+                else:event.channel.send.assert_not_awaited()
     async def test_dropdown_miss_advances_once_and_replayed_event_is_idempotent(self):
         view=RoundView(self.store,self.state)
         wrong=next(n for n in self.store.catalog.choices() if n!=self.state['puzzle']['map']['name'])
