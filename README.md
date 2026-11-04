@@ -66,9 +66,12 @@ your configured application and bot token; never paste the token into chat.
 
 The board's alphabetical map dropdown works in daily and practice. Selecting a
 map in Discord immediately submits that guess; in the browser, select a map then
-press **Make a guess**. All accepted names appear, including maps without published
-clues. Discord shows Previous/Next maps controls if a custom roster exceeds 25
-names; browsing these pages is free. The optional `/portle guess map_name` command
+press **Make a guess**. Already-guessed maps are removed from the Discord dropdown;
+the browser disables them and labels them **already guessed**. This follows the
+current round's saved history and resets for new practice rounds. All other
+accepted names remain available, including maps without published clues.
+Discord shows Previous/Next maps controls if more than 25 unguessed names remain;
+browsing these pages is free. The optional `/portle guess map_name` command
 still supports autocomplete. Earlier/Later clue buttons revisit unlocked
 screenshots. Share result also supports practice. Controls expire after
 15 minutes or a bot restart; `/portle play` restores the daily, while practice

@@ -40,9 +40,9 @@ async def show_round(interaction,store,state,projection='iso',replace=False,clue
 
 class MapGuessSelect(discord.ui.Select):
     def __init__(self,board,names,finished):
-        super().__init__(placeholder='Choose a map to submit your guess…',
-            options=[discord.SelectOption(label=name,value=name) for name in names],
-            min_values=1,max_values=1,disabled=finished,row=0)
+        super().__init__(placeholder='Choose a map to submit your guess…' if names else 'No maps remaining',
+            options=[discord.SelectOption(label=name,value=name) for name in names] or [discord.SelectOption(label='No maps remaining',value='none')],
+            min_values=1,max_values=1,disabled=finished or not names,row=0)
         self.board=board
 
     async def callback(self,interaction):
@@ -58,7 +58,10 @@ class RoundView(discord.ui.View):
         super().__init__(timeout=900)
         self.store=store;self.round_id=state['id'];self.owner=state['user_id'];self.version=state['version'];self.projection=projection
         finished=state['status']!='playing'
-        names=store.catalog.choices();self.map_pages=(len(names)+24)//25
+        guessed={a['map_id'] for a in state['attempts'] if a['kind']=='guess'}
+        guessed_names={m['name'] for m in store.catalog.maps if m['id'] in guessed}
+        names=[name for name in store.catalog.choices() if name not in guessed_names]
+        self.map_pages=max(1,(len(names)+24)//25)
         self.map_page=max(0,min(map_page,self.map_pages-1))
         self.map_select=MapGuessSelect(self,names[self.map_page*25:(self.map_page+1)*25],finished)
         self.add_item(self.map_select)

@@ -75,8 +75,10 @@ Ctrl+C stops the bot safely; restarting resumes daily progress from SQLite.
 All normal game commands respond privately. The explicit Share button and
 `/portle share` post publicly. Guessing with `/portle guess` always targets the
 daily round; use the board's dropdown for practice guesses. The dropdown lists
-all accepted names alphabetically, including maps without published clues, and
-adds free Previous/Next maps controls for custom rosters larger than 25 names.
+unguessed names alphabetically, including maps without published clues. Guessed
+maps disappear from the current round's dropdown, including after resuming the
+daily. New practice starts with the full list. Free Previous/Next maps controls
+appear when more than 25 unguessed names remain.
 
 ## Keep it running
 

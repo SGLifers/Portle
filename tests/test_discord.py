@@ -105,6 +105,41 @@ class DiscordTests(unittest.IsolatedAsyncioTestCase):
         updated=self.store.get(self.state['id'],'11')
         self.assertEqual(updated['version'],1);self.assertEqual(updated['status'],'playing');self.assertEqual(len(updated['attempts']),1)
         self.assertEqual(updated['attempts'][0]['name'],wrong)
+        self.assertNotIn(wrong,[o.value for o in RoundView(self.store,updated).map_select.options])
+    async def test_guessed_maps_stay_unavailable_after_resume_but_reset_for_new_practice(self):
+        for mode in ['daily','practice']:
+            with self.subTest(mode=mode):
+                state=self.store.start('11',mode)
+                wrong=next(m for m in self.store.catalog.maps if m['id']!=state['puzzle']['map']['id'])
+                wrong['aliases'].append('test-alias')
+                state=self.store.act(state['id'],'11',0,guess='test-alias')
+                state=self.store.act(state['id'],'11',1,skip=True)
+                restarted=GameStore(self.store.path,self.store.catalog)
+                resumed=restarted.start('11') if mode=='daily' else restarted.get(state['id'],'11')
+                view=RoundView(restarted,resumed)
+                self.assertEqual([o.value for o in view.map_select.options],[n for n in self.store.catalog.choices() if n!=wrong['name']])
+                self.assertEqual(resumed['version'],2)
+                self.assertEqual([o.value for o in RoundView(self.store,self.store.start('99')).map_select.options],self.store.catalog.choices())
+                self.assertEqual([o.value for o in RoundView(self.store,self.store.start('11','practice')).map_select.options],self.store.catalog.choices())
+                wrong['aliases'].remove('test-alias')
+    async def test_finished_round_with_all_names_used_has_a_valid_disabled_dropdown(self):
+        state=self.state;answer=state['puzzle']['map']['name']
+        for name in [n for n in self.store.catalog.choices() if n!=answer]+[answer]:
+            state=self.store.act(state['id'],'11',state['version'],guess=name)
+        view=RoundView(self.store,state)
+        self.assertEqual(state['status'],'won');self.assertTrue(view.map_select.disabled)
+        self.assertEqual(view.map_select.placeholder,'No maps remaining')
+        components=[c for row in view.to_components() for c in row['components'] if c['type']==3]
+        self.assertEqual(len(components[0]['options']),1);self.assertTrue(components[0]['disabled'])
+    async def test_filtering_guesses_clamps_a_disappearing_last_page(self):
+        maps=tuple({**self.store.catalog.maps[0],'id':f'MAP_{i}','name':f'Arena {i:02}'} for i in range(26))
+        store=GameStore(Path(self.temp.name)/'page-shrink.db',Catalog(maps,'page-shrink-fixture'))
+        state=store.start('11');wrong=next(m['name'] for m in maps if m['id']!=state['puzzle']['map']['id'])
+        state=store.act(state['id'],'11',0,guess=wrong)
+        view=RoundView(store,state,map_page=1)
+        self.assertEqual(view.map_page,0);self.assertEqual(view.map_pages,1)
+        self.assertEqual(len(view.map_select.options),25);self.assertNotIn(wrong,[o.value for o in view.map_select.options])
+        self.assertNotIn(view.previous_maps,view.children);self.assertNotIn(view.next_maps,view.children)
     async def test_dropdown_rejects_foreign_stale_and_repeated_guesses_without_using_a_turn(self):
         wrong=next(n for n in self.store.catalog.choices() if n!=self.state['puzzle']['map']['name'])
         original=RoundView(self.store,self.state)

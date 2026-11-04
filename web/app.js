@@ -14,6 +14,8 @@ function render(){
   $('projection').hidden=manual;$('clue-navigation').hidden=!manual;$('clue').classList.toggle('manual',manual);$('earlier-legend').hidden=manual;$('new-legend').hidden=manual;
   $('asset-note').textContent=manual?'Manually supplied screenshots':'Real game assets · no map textures';renderImage();
   $('daily').classList.toggle('active',round.mode==='daily');$('practice').classList.toggle('active',round.mode==='practice');
+  const guessed=new Set(round.attempts.filter(a=>a.kind==='guess').map(a=>a.name));
+  for(const option of $('guess').options){if(!option.value)continue;option.disabled=guessed.has(option.value);option.textContent=option.value+(option.disabled?' (already guessed)':'');}
   $('guess').disabled=!active;$('guess').value='';$('result').hidden=active;$('guess-form').hidden=!active;$('skip').hidden=!active;
   $('status').textContent=active?'Name that arena.':round.status==='won'?'You found it.':'One to remember.';
   $('instruction').textContent=active?'Start with a hunch. You have six guesses.':`The arena was ${round.answer}.`;

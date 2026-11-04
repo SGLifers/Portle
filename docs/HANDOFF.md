@@ -354,3 +354,41 @@ Discord dropdowns, the user must stop their existing bot with Ctrl+C, run
 `./run.sh` again, then open a fresh `/portle play` or `/portle practice` board.
 Daily progress persists; old message components expire after restart. Live
 Discord dropdown delivery remains to be confirmed by the user after restart.
+
+## Make guessed maps unavailable — 2026-11-04
+
+User has not yet tested/restarted the dropdown version and requested preventing
+selection of already-guessed maps. Discord now removes guessed maps from the
+board dropdown using saved attempt map IDs, so guesses entered through aliases
+or the optional slash command are covered. Skips remove no choices. Filtering
+is specific to the round/player, survives daily resume/restart and resets for
+fresh practice. Pagination counts only remaining maps and clamps the page if
+filtering removes the last page. An exhausted roster renders a disabled valid
+No maps remaining select with one inert option (Discord requires options).
+
+Browser render now disables each guessed option and appends (already guessed),
+with muted styling. Options rebuild from their canonical values on each render
+so labels do not accumulate and new rounds reenable choices. This uses only the
+already-public attempt history; no answer/map ID fields were added to payloads.
+The backend's duplicate, stale and owner validation still protects direct calls.
+Optional typed `/portle guess` retains its existing autocomplete and rejects
+duplicates without costing a turn, as before. No schema/permission changes.
+
+Verification: full Python suite passed65 tests in8.257s; Node syntax and Git
+whitespace checks passed. Three new tests cover persisted daily/practice history,
+aliases, skips, another player, fresh practice, a fully exhausted roster and a
+26-to25-option pagination transition. Existing replay/miss test now checks that
+the wrong choice disappears. Browser QA confirmed disabled (already guessed)
+options after a miss, unchanged availability during free screenshot review,
+selection preservation and all choices reenabled for fresh practice. No browser
+warnings/errors. Screenshot: ignored `.local/guessed-maps-preview.png`; native
+popup overlays are not captured, so disabled-state proof is the live AX/DOM check.
+
+QA used only `.local/preview.sqlite3`. The old preview daily had a frozen Abyss
+snapshot from before clue removal and was completed during testing; this is
+expected snapshot persistence, not a newly published Abyss set. New practice
+used the current library and retained Abyss solely as an incorrect guess option.
+No production Discord progress or clue content changed. Existing preview server
+PID213145/session70417 remains running; user-managed bot and Atlas untouched.
+User activation: one Ctrl+C / `./run.sh` restart loads both dropdown commits,
+then `/portle play` opens a fresh board with persisted daily guesses filtered.
