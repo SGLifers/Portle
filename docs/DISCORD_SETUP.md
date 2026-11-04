@@ -4,6 +4,11 @@ The local game and bot implementation are ready. A live connection needs a Disco
 application that you own and a bot token configured on your computer. Keep the
 token in a local editor; never paste it into chat, source code, a screenshot or Git.
 
+Before playing, publish at least one six-screenshot set in the local clue editor.
+Run `.venv/bin/python -m portle preview --port 8742` and open
+http://127.0.0.1:8742/manage. The preview and bot share `data/clues/` by default but
+keep separate player progress databases. See [manual clues](MANUAL_CLUES.md).
+
 ## 1. Create and install the application
 
 1. Open the [Discord Developer Portal](https://discord.com/developers/applications)
@@ -57,9 +62,10 @@ Ctrl+C stops the bot safely; restarting resumes daily progress from SQLite.
 
 1. Run `/portle help` and `/portle maps`.
 2. Open `/portle play`. Confirm **Only you can see this** and a portal clue image.
-3. Use **Top view**, then **Guess map**. A view change must not consume a guess.
+3. Use **Guess map** or skip to unlock the next screenshot. Earlier/Later clue
+   controls must revisit revealed images without consuming a guess.
 4. Use `/portle practice` for a disposable round. Finish it using guesses or skips;
-   check that all portals and the answer appear at the end.
+   check that the answer appears and all six screenshots can be viewed at the end.
 5. Deliberately select **Share result** to post its colored-square result to the
    channel. It should contain no arena name or clue image.
 6. Restart the bot and reopen `/portle play` to confirm daily continuity. Check the
@@ -95,8 +101,10 @@ private because they contain Discord identifiers and the puzzle schedule seed.
 - **Buttons expired after restart or 15 minutes:** `/portle play` restores the
   daily board. `/portle practice` starts new practice; older practice buttons are
   not restored.
-- **Missing catalog:** run `./setup.sh` with the existing Atlas scene export path.
-  Source exports and extracted map data are deliberately excluded from Git.
+- **No manual clues published:** start the local preview/editor and publish a
+  complete six-image set. The bot does not generate fallback clues in manual mode.
+- **Missing clue image:** restore the entire clue library from backup, including
+  older image files referenced by existing rounds. Keep it with the game database.
 
 Implementation was validated with offline Discord interaction mocks and the local
 browser; live Discord image delivery, permission behavior and modal responses must

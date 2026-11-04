@@ -1,115 +1,105 @@
 # Portle
 
-Guess a Splitgate arena from its portal placements. Six guesses; each miss
-reveals more portal walls. A separate Discord game powered by the real asset
-coordinates extracted by Portal Atlas.
+Guess a Splitgate arena from **manually authored screenshot clues**. You capture
+six views in Portal Atlas, choose their map answer and reveal order, then Portle
+shows the images in a daily or practice guessing game.
 
-## Play
-
-- One shared daily arena, with private progress for each Discord player.
-- Six guesses. Clues reveal **1 → 2 → 4 → 8 → 16 → all** portal placements.
-- A wrong answer or skip consumes a guess. Invalid/repeated answers are free.
-- Switch between isometric and top views without spending a guess.
-- Unlimited practice, daily statistics, streaks and server leaderboards.
-- Explicit, spoiler-free result sharing; clue boards and guesses stay private.
-
-The current local catalog contains **23 maps and 3,366 portal placements**.
-Every visible portal comes from the imported game assets, with its real position,
-orientation, shape and dimensions. Clues contain no map textures or screenshots.
-Both views use the same revealed portals and a consistent full-map frame.
-
-## Run locally
-
-Python 3.12+ is recommended. From this directory:
+## Start
 
 ```bash
 ./setup.sh
 .venv/bin/python -m portle preview --port 8742
 ```
 
-Open **http://127.0.0.1:8742** for the playable browser preview. It uses the same
-rules and clue renderer as Discord, and a separate database. A browser cookie
-identifies your local preview player. Keep that cookie to retain daily progress.
-The preview only listens on loopback and is intended for this computer.
+Open **http://127.0.0.1:8742/manage** to choose a map, upload six screenshots and
+publish the set. Open **http://127.0.0.1:8742** to play. The library starts empty;
+only complete published sets are eligible. No game installation is required for
+this manual workflow. Python 3.12+ is recommended; dependencies stay in `.venv`.
 
-`setup.sh` installs dependencies into `.venv` and imports the existing Atlas
-scene exports. To use a different source:
+See [manual clue guide](docs/MANUAL_CLUES.md) for the full capture/edit/publish
+workflow, image limits and backup instructions.
 
-```bash
-./setup.sh --source /absolute/path/to/PortalAtlas/data/scenes
-```
+## Capture clues in Portal Atlas
 
-On a machine with multiple Python installations, set `PORTLE_PYTHON` when first
-running setup. The importer reads source files without changing them. It excludes
-training, creative libraries and the shared HangmanR3 zone. Extracted data,
-generated clues, databases, virtual environments and credentials are ignored by Git.
+Use the Atlas portal-list checkboxes, **Hide all**, **Show all** or **Only selected**
+to choose a visible subset. The **Portals** toggle hides all portal overlays;
+**Choose portals for clues** also works on mobile. Uncheck **Labels** and **Lines**
+for clean captures. Adjust the camera/cutaway/colors and use **Screenshot** for
+each clue. Portle simply displays the images you supply, with no generated portal
+selection, image rotation or enforced portal-count progression.
 
-## Run in Discord
+## Game rules
 
-Follow [Discord setup](docs/DISCORD_SETUP.md) to create your bot, install it in a
-server, and place its token in a local `.env`. Then:
+- One daily map shared by players, with private independent progress.
+- Six guesses and six screenshots. Each wrong answer or skip unlocks the next clue.
+- Review previously revealed images freely. Invalid/repeated map names are free.
+- A correct guess or six misses ends the round and unlocks all screenshots.
+- Unlimited practice, daily stats/streaks and guild participant leaderboards.
+- Explicit, spoiler-free sharing; guesses and clue boards stay private in Discord.
+
+The bundled answer roster contains 23 maps. Only published maps enter the puzzle
+rotation, but the full roster remains available for guessing. One ready set is
+sufficient to start. Daily resets at midnight `PORTLE_TIMEZONE` (default `UTC`).
+
+## Discord
+
+Follow [Discord setup](docs/DISCORD_SETUP.md) to create/install your application
+and configure a token in a local `.env`, then run:
 
 ```bash
 ./run.sh
 ```
 
-Use `/portle play` in the server. No Discord account credentials are included in
-this repository. The bot has been tested offline; a live Discord session still
-requires your configured application and token.
+The bot implementation is tested offline. A live Discord connection still requires
+your configured application and bot token; never paste the token into chat.
 
 | Command | Behavior |
 | --- | --- |
-| `/portle play` | Open or resume today's private round |
-| `/portle practice` | Start a fresh private practice round |
-| `/portle guess map_name` | Guess the daily arena, with autocomplete |
-| `/portle maps` | List accepted map names |
-| `/portle stats` | Your daily results and guess distribution |
-| `/portle leaderboard` | Daily records of players who joined in this server |
-| `/portle share` | Post your finished daily score publicly without its answer |
+| `/portle play` | Open or resume the private daily |
+| `/portle practice` | Start new private practice |
+| `/portle guess map_name` | Guess the daily, with autocomplete |
+| `/portle maps` | List accepted answers |
+| `/portle stats` | Daily results and guess distribution |
+| `/portle leaderboard` | Overall daily records of this guild's participants |
+| `/portle share` | Post a finished daily score without its answer |
 | `/portle help` | Explain the rules |
 
-The board's **Guess map** button works for daily and practice. **Share result**
-also supports practice. Each board has a 15-minute button lifetime; reopen the
-daily using `/portle play`. An expired practice board requires a new practice
-round. The bot does not read ordinary chat messages.
+The Guess button works in daily and practice. Earlier/Later clue buttons revisit
+unlocked screenshots. Share result also supports practice. Buttons expire after
+15 minutes or a bot restart; `/portle play` restores the daily, while practice
+requires starting a new round. No ordinary chat-message reading is needed.
 
-## Persistence and configuration
+## Data and configuration
 
-Daily puzzles reset at midnight in `PORTLE_TIMEZONE` (default `UTC`). Everyone on
-one bot installation receives the same map and portal order each day. Each player
-has one daily round across servers. Leaderboards include participants in that
-server and show their overall daily records. Practice never changes these records.
+`PORTLE_CLUE_SOURCE=manual` is the default. `PORTLE_CLUES` overrides the default
+`data/clues/` directory, and `PORTLE_DATABASE` overrides `data/portle.sqlite3`.
+The preview always uses `.local/preview.sqlite3`. `PORTLE_CATALOG` optionally
+provides a custom names-list JSON instead of `portle/map_names.json`.
 
-The installation's private seed shuffles the catalog into a repeating cycle that
-uses every map before repeating. Portal selection starts at a seeded real portal
-and adds distant placements to spread later clues across the arena. Different bot
-installations have independent schedules. Each started daily puzzle is frozen in
-SQLite, so a restart or later asset import cannot change that day's saved puzzle.
+Drafts and published sets are separate. A started daily snapshots its six immutable
+image hashes, so later edits, republishing, unpublishing and restarts cannot change
+that puzzle. Back up the entire clue library and SQLite database together. Images,
+progress, Discord identifiers, credentials and local settings are ignored by Git.
+The editor is an owner tool for this loopback-only installation; it must not be
+exposed as an unauthenticated public authoring service.
 
-`PORTLE_CATALOG` and `PORTLE_DATABASE` optionally override the default paths
-`data/catalog.json` and `data/portle.sqlite3`. Browser preview progress always uses
-`.local/preview.sqlite3`. SQLite stores player/server IDs, guesses, daily snapshots
-and the private schedule seed. Back up the production database while the bot is
-stopped, or use SQLite's backup facility; retain the seed to retain the schedule.
-Changing the timezone or replacing the catalog can alter future puzzles, so choose
-these before launch.
+The original asset-coordinate generator remains an explicit development/legacy
+option: set `PORTLE_CLUE_SOURCE=generated`, then run
+`.venv/bin/python -m portle import-assets`. `./setup.sh --source /path/to/scenes`
+can still import that legacy catalog. Manual mode never silently uses it.
+Legacy generated results are retained and kept separate from manual daily stats.
 
-## Verification and maintenance
+## Verify
 
 ```bash
 .venv/bin/python -m unittest discover -s tests -v
 .venv/bin/python -m portle doctor
-.venv/bin/python -m portle render-sample --stage 5 --view iso
 ```
 
-`doctor` validates local loading and command registration without connecting to
-Discord or printing the token. `render-sample` writes `.local/sample.png`.
-The test suite checks rules, persistence, private ownership, concurrent/replayed
-actions, daily rollover, anonymous clue payloads, HTTP handling and mocked Discord
-interactions. When local assets are present, it also verifies all imported portal
-values and renders both views for every map. Real-asset tests skip when their
-private inputs are absent.
+Doctor reports mode, answer count, published-set count and offline Discord command
+schema without connecting or printing the token. Tests cover staged publishing,
+image validation/privacy, immutable snapshots, future-clue/owner guards, concurrent
+writes/actions, restart/rollover, stats, HTTP and mocked Discord interactions.
+Legacy real-asset checks run only when those private inputs are present.
 
-See [handoff notes](docs/HANDOFF.md) for architecture, validation evidence, process
-ownership and remaining live deployment checks. Portle is independent of Portal
-Atlas and does not start or modify the game installation or extraction workers.
+See [handoff notes](docs/HANDOFF.md) for validation evidence and process ownership.

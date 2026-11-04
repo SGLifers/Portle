@@ -37,9 +37,9 @@ def main():
     database=Path(os.getenv('PORTLE_DATABASE',str(ROOT/'data/portle.sqlite3')))
     store=GameStore(database,catalog,timezone_name,clues=clues)
     if args.command=='render-sample':
-        from .game import apply_action
-        from .render import png
-        state=store.start('local-art-preview','practice')
+        from .game import apply_action,GameError
+        try:state=store.start('local-art-preview','practice')
+        except GameError as exc:parser.exit(2,str(exc)+'\n')
         for _ in range(args.stage-1):apply_action(state,skip=True)
         path=ROOT/'.local/sample.png';path.parent.mkdir(exist_ok=True);path.write_bytes(store.image(state,args.view));print(path);return 0
     from .bot import PortleClient

@@ -177,7 +177,7 @@ notifications, production hosting/service installation or shared-channel game
 mode were requested or enabled. Changing catalog/timezone can alter future daily
 puzzles; retain the private production DB and seed.
 
-## Latest request — manual screenshot clues (implementation/QA in progress)
+## Latest request — manual screenshot clues (complete, 2026-11-03)
 
 The user explicitly changed the clue source: they will capture screenshots in
 Portal Atlas and Portle should expose those images. They also authorized Atlas
@@ -213,8 +213,35 @@ clues were invented or published. It should show the empty/setup screen linking
 to the editor. Bot remains disconnected; no credentials requested/searched for.
 Atlas remains at localhost8741, with visibility controls committed separately.
 
-Early validation: existing37 tests passed, then52 including manual library/store,
-HTTP and mocked Discord cases. Two additional tests cover parallel uploads and
-manual/legacy stat separation; final rerun/QA pending. UI syntax checks pass.
-Remaining: real editor upload/publish/play/review QA in a separate disposable
-library/database, empty real-editor/mobile checks, docs migration and final commit.
+Final validation: **54 tests passed in7.935s**, including legacy37 checks, manual
+library/store/HTTP and Discord screenshot cases, parallel upload preservation and
+manual/legacy stat separation. Log `.local/tests-manual-final.log`. JS syntax
+checks passed for web/app.js and web/manage.js. Doctor reports23 answer names,
+0 geometry portals, manual mode,0 real published sets and no network connection.
+
+Browser end-to-end QA used a separate server at localhost8743 with its own library
+and database under `.local/manual-qa-3749bce4/`. Uploaded six actual Atlas captures
+through file choosers, published the temporary Academy set, started a daily,
+confirmed native1635×2499 image delivery, skipped to clue2, reviewed clue1 without
+advancing, then guessed Academy and won2/6. The end screen unlocked screenshot6
+and produced a spoiler-free share. No projection button appeared in manual mode.
+These images were testing fixtures in a separate owner-only library, never added
+to the user's real drafts or rotation. Temporary server PID1418983 was verified
+and stopped, and its agent-created tab5 closed. QA files remain ignored locally.
+
+Real editor remains http://127.0.0.1:8742/manage, showing an empty Academy draft
+(0/6), ready for user captures. Screenshot `.local/manual-clue-editor-preview.png`.
+The map-specific Open Portal Atlas link correctly targets the chosen answer map.
+Editor mobile check at390×844: no horizontal overflow, both empty/populated slots
+fit. No console warnings/errors. Viewport override reset. Existing Portle tab4
+marked deliverable; Atlas tab3 remains available. Real library still has0 published
+sets. Preview PID1418589 remains running. No live Discord token/connection exists.
+
+Portle's README, MANUAL_CLUES.md and DISCORD_SETUP.md now document the manual
+workflow. setup.sh defaults to installing dependencies and offline doctor, without
+reading Atlas assets. Explicit legacy setup/import options are retained. Default
+manual mode reads only the bundled names roster, uploaded screenshots and SQLite.
+Backend milestone b599fb2; use git log for the final editor/documentation commit.
+No required implementation remains. The next user action is to capture/upload
+their first six-image set and publish it. Library/root files must be backed up
+with the database because historical rounds retain immutable image hashes.
