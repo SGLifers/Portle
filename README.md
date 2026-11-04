@@ -64,8 +64,13 @@ your configured application and bot token; never paste the token into chat.
 | `/portle share` | Post a finished daily score without its answer |
 | `/portle help` | Explain the rules |
 
-The Guess button works in daily and practice. Earlier/Later clue buttons revisit
-unlocked screenshots. Share result also supports practice. Buttons expire after
+The board's alphabetical map dropdown works in daily and practice. Selecting a
+map in Discord immediately submits that guess; in the browser, select a map then
+press **Make a guess**. All accepted names appear, including maps without published
+clues. Discord shows Previous/Next maps controls if a custom roster exceeds 25
+names; browsing these pages is free. The optional `/portle guess map_name` command
+still supports autocomplete. Earlier/Later clue buttons revisit unlocked
+screenshots. Share result also supports practice. Controls expire after
 15 minutes or a bot restart; `/portle play` restores the daily, while practice
 requires starting a new round. No ordinary chat-message reading is needed.
 

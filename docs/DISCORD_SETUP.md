@@ -15,7 +15,7 @@ keep separate player progress databases. See [manual clues](MANUAL_CLUES.md).
    and create an application named Portle (or your preferred name).
 2. In **Bot**, obtain its bot token. Leave **Message Content**, **Server Members**
    and **Presence** privileged intents disabled. Portle uses slash commands,
-   interaction buttons and modals.
+   interaction buttons and map dropdowns.
 3. Configure a **Guild Install** with the `bot` and `applications.commands` scopes.
    Give the bot **View Channels**, **Send Messages**, **Embed Links** and **Attach
    Files** in the channel where you want to play. It does not need Administrator.
@@ -62,7 +62,8 @@ Ctrl+C stops the bot safely; restarting resumes daily progress from SQLite.
 
 1. Run `/portle help` and `/portle maps`.
 2. Open `/portle play`. Confirm **Only you can see this** and a portal clue image.
-3. Use **Guess map** or skip to unlock the next screenshot. Earlier/Later clue
+3. Choose a map from the board's dropdown to immediately submit a guess, or skip
+   to unlock the next screenshot. Earlier/Later clue
    controls must revisit revealed images without consuming a guess.
 4. Use `/portle practice` for a disposable round. Finish it using guesses or skips;
    check that the answer appears and all six screenshots can be viewed at the end.
@@ -73,7 +74,9 @@ Ctrl+C stops the bot safely; restarting resumes daily progress from SQLite.
 
 All normal game commands respond privately. The explicit Share button and
 `/portle share` post publicly. Guessing with `/portle guess` always targets the
-daily round; use the board's modal for practice guesses.
+daily round; use the board's dropdown for practice guesses. The dropdown lists
+all accepted names alphabetically, including maps without published clues, and
+adds free Previous/Next maps controls for custom rosters larger than 25 names.
 
 ## Keep it running
 
@@ -119,7 +122,7 @@ private because they contain Discord identifiers and the puzzle schedule seed.
   older image files referenced by existing rounds. Keep it with the game database.
 
 Implementation was validated with offline Discord interaction mocks and the local
-browser; live Discord image delivery, permission behavior and modal responses must
+browser; live Discord image delivery, permission behavior and dropdown responses must
 be confirmed after your application is connected.
 
 References: [Discord app setup](https://docs.discord.com/developers/quick-start/getting-started),

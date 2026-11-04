@@ -307,3 +307,50 @@ puzzle snapshots; the browser preview DB contained2 historical snapshots. No
 progress/snapshots/stats were altered. Existing browser rounds retain their frozen
 images. Real token, server IDs and clue content remain outside Git. User's live
 bot is managed by the user; no bot process or preview process was stopped.
+
+## Map dropdowns — 2026-11-04
+
+User requested dropdown submission instead of a text field. Replaced Discord's
+Guess map button/text modal with a native single-choice map select on daily and
+practice boards. Selecting immediately submits; the placeholder, active embed
+and help say so. Uses the existing store action/version/interaction-ID checks
+and edits the same private board. Finished boards disable the dropdown. Optional
+`/portle guess map_name` with autocomplete remains compatible; slash schemas and
+required permissions are unchanged.
+
+Options are the entire alphabetical names roster, currently23, without filtering
+to published packs or marking the answer. Abyss remains a valid guess despite
+its incorrect clue set having been unpublished. Custom rosters over25 names use
+Previous/Next maps buttons; browsing pages is free and preserves projection and
+the selected clue. Pages reject stale/finished boards and enforce ownership.
+
+The browser preview now uses a required native select rather than input/datalist.
+Its placeholder has an empty value; Make a guess stays disabled until a map is
+selected. Selection does not submit until the player presses Make a guess. All
+submission controls disable during requests; a successful turn resets selection.
+Repeated-guess errors retain selection, and reviewing screenshots retains it.
+Dark styling, keyboard focus and responsive width apply to the new select.
+
+Validation: `.venv/bin/python -m unittest discover -s tests -v` passed62 tests in
+8.155s. Five new Discord tests cover neutral alphabetical options, daily/practice
+wins, wrong guesses, duplicate interaction delivery, foreign ownership, stale and
+repeated guesses, and51-name pagination with free navigation and reachable later
+page options. Existing manual-clue test confirms all roster names remain options
+even with just one published set. SDK serialization contains no TextInput.
+Node `--check web/app.js` and `git diff --check` passed. Consulted discord.py's
+official interaction API for the select implementation.
+
+Browser QA on the real local manual library: dropdown shows23 names, placeholder
+disables submit, wrong guess unlocks clue2, repeated guess costs no turn, free
+clue review preserves selection, correct guess completes practice and hides the
+form; practice did not affect daily stats. No browser errors/warnings. Left a
+fresh practice board in the new preview tab; screenshot is ignored
+`.local/dropdown-preview.png`. No clue edits or production Discord DB changes.
+
+Started preview on127.0.0.1:8742, PID213145, exec session70417, using the normal
+separate `.local/preview.sqlite3`; verify PID identity before any future signal.
+Portal Atlas server and user-managed Discord bot were untouched. To activate
+Discord dropdowns, the user must stop their existing bot with Ctrl+C, run
+`./run.sh` again, then open a fresh `/portle play` or `/portle practice` board.
+Daily progress persists; old message components expire after restart. Live
+Discord dropdown delivery remains to be confirmed by the user after restart.

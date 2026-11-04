@@ -3,18 +3,19 @@ from pathlib import Path
 import tempfile
 from types import SimpleNamespace
 import unittest
-from unittest.mock import AsyncMock,patch
+from unittest.mock import AsyncMock,PropertyMock,patch
 from urllib.parse import parse_qs,urlparse
 from PIL import Image
 import discord
-from portle.bot import DiscordSetupError,PortleClient,RoundView,show_round
+from portle.bot import DiscordSetupError,MapGuessSelect,PortleClient,RoundView,show_round
+from portle.catalog import Catalog
 from portle.store import GameStore
 from portle.clues import ClueLibrary
 from helpers import fixture_catalog
 
 
 class Response:
-    def __init__(self):self.done=False;self.flags=None;self.send_message=AsyncMock();self.send_modal=AsyncMock()
+    def __init__(self):self.done=False;self.flags=None;self.send_message=AsyncMock()
     def is_done(self):return self.done
     async def defer(self,**kwargs):self.done=True;self.flags=kwargs
 
@@ -79,6 +80,66 @@ class DiscordTests(unittest.IsolatedAsyncioTestCase):
     async def test_foreign_player_rejected(self):
         view=RoundView(self.store,self.state);event=interaction('99')
         self.assertFalse(await view.interaction_check(event));self.assertTrue(event.response.send_message.call_args.kwargs['ephemeral'])
+    async def test_dropdown_lists_all_names_without_marking_the_answer(self):
+        view=RoundView(self.store,self.state)
+        self.assertEqual([o.label for o in view.map_select.options],self.store.catalog.choices())
+        self.assertEqual([o.value for o in view.map_select.options],self.store.catalog.choices())
+        self.assertTrue(all(not o.default and o.description is None for o in view.map_select.options))
+        self.assertNotIn(view.previous_maps,view.children);self.assertNotIn(view.next_maps,view.children)
+        self.assertNotIn(4,[c['type'] for row in view.to_components() for c in row['components']])
+    async def test_dropdown_submits_private_daily_and_practice_guesses(self):
+        for mode in ['daily','practice']:
+            with self.subTest(mode=mode):
+                state=self.store.start('11',mode);view=RoundView(self.store,state);event=interaction()
+                event.id=101 if mode=='daily' else 102
+                with patch.object(MapGuessSelect,'values',new_callable=PropertyMock,return_value=[state['puzzle']['map']['name']]):
+                    await view.map_select.callback(event)
+                updated=self.store.get(state['id'],'11');self.assertEqual(updated['status'],'won');self.assertEqual(updated['version'],1)
+                self.assertTrue(event.response.flags['ephemeral']);self.assertFalse(event.response.flags['thinking'])
+                self.assertTrue(event.edit_original_response.call_args.kwargs['view'].map_select.disabled)
+    async def test_dropdown_miss_advances_once_and_replayed_event_is_idempotent(self):
+        view=RoundView(self.store,self.state)
+        wrong=next(n for n in self.store.catalog.choices() if n!=self.state['puzzle']['map']['name'])
+        with patch.object(MapGuessSelect,'values',new_callable=PropertyMock,return_value=[wrong]):
+            for _ in range(2):await view.map_select.callback(interaction())
+        updated=self.store.get(self.state['id'],'11')
+        self.assertEqual(updated['version'],1);self.assertEqual(updated['status'],'playing');self.assertEqual(len(updated['attempts']),1)
+        self.assertEqual(updated['attempts'][0]['name'],wrong)
+    async def test_dropdown_rejects_foreign_stale_and_repeated_guesses_without_using_a_turn(self):
+        wrong=next(n for n in self.store.catalog.choices() if n!=self.state['puzzle']['map']['name'])
+        original=RoundView(self.store,self.state)
+        with patch.object(MapGuessSelect,'values',new_callable=PropertyMock,return_value=[wrong]):
+            foreign=interaction('99');await original.map_select.callback(foreign)
+            self.assertEqual(self.store.get(self.state['id'],'11')['version'],0)
+            self.assertTrue(foreign.followup.send.call_args.kwargs['ephemeral']);foreign.edit_original_response.assert_not_awaited()
+            updated=self.store.act(self.state['id'],'11',0,guess=wrong)
+            for view,message in [(original,'out of date'),(RoundView(self.store,updated),'already tried')]:
+                event=interaction();await view.map_select.callback(event)
+                self.assertIn(message,event.followup.send.call_args.args[0]);event.edit_original_response.assert_not_awaited()
+                self.assertTrue(event.followup.send.call_args.kwargs['ephemeral'])
+        self.assertEqual(self.store.get(self.state['id'],'11')['version'],1)
+    async def test_large_roster_pages_are_free_and_preserve_the_board(self):
+        maps=tuple({**self.store.catalog.maps[0],'id':f'MAP_{i}','name':f'Arena {i:02}'} for i in range(51))
+        store=GameStore(Path(self.temp.name)/'large.db',Catalog(maps,'large-fixture'))
+        state=store.start('11');view=RoundView(store,state,projection='top',clue_index=1)
+        seen=[]
+        for page,size in [(0,25),(1,25),(2,1)]:
+            self.assertEqual(view.map_page,page);self.assertEqual(len(view.map_select.options),size)
+            seen.extend(o.value for o in view.map_select.options)
+            self.assertEqual(view.previous_maps.disabled,page==0);self.assertEqual(view.next_maps.disabled,page==2)
+            self.assertEqual(view.projection,'top');self.assertEqual(view.clue_index,1)
+            if page<2:
+                event=interaction();await view.next_maps.callback(event)
+                self.assertEqual(set(event.edit_original_response.call_args.kwargs),{'view'})
+                view=event.edit_original_response.call_args.kwargs['view']
+        self.assertEqual(seen,store.catalog.choices());self.assertEqual(store.get(state['id'],'11')['version'],0)
+        event=interaction();await view.previous_maps.callback(event)
+        view=event.edit_original_response.call_args.kwargs['view'];self.assertEqual(view.map_page,1)
+        wrong=next(o.value for o in view.map_select.options if o.value!=state['puzzle']['map']['name'])
+        with patch.object(MapGuessSelect,'values',new_callable=PropertyMock,return_value=[wrong]):await view.map_select.callback(interaction())
+        self.assertEqual(store.get(state['id'],'11')['version'],1)
+        event=interaction();await view.next_maps.callback(event)
+        self.assertIn('out of date',event.followup.send.call_args.args[0]);event.edit_original_response.assert_not_awaited()
     async def test_skip_updates_original_private_board_once(self):
         view=RoundView(self.store,self.state);event=interaction();await view.skip_button.callback(event)
         self.assertEqual(self.store.get(self.state['id'],'11')['version'],1)
@@ -89,7 +150,7 @@ class DiscordTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(event.edit_original_response.call_args.kwargs['view'].projection,'top')
     async def test_finished_board_disables_guess_and_enables_share(self):
         state=self.store.act(self.state['id'],'11',0,guess=self.state['puzzle']['map']['name']);view=RoundView(self.store,state)
-        self.assertTrue(view.guess_button.disabled);self.assertTrue(view.skip_button.disabled);self.assertFalse(view.share_button.disabled)
+        self.assertTrue(view.map_select.disabled);self.assertTrue(view.skip_button.disabled);self.assertFalse(view.share_button.disabled)
         event=interaction();await view.share_button.callback(event)
         text=event.response.send_message.call_args.args[0];self.assertNotIn(state['puzzle']['map']['name'],text)
         self.assertFalse(event.response.send_message.call_args.kwargs.get('ephemeral',False))
@@ -102,6 +163,7 @@ class DiscordTests(unittest.IsolatedAsyncioTestCase):
         event=interaction();await show_round(event,manual,state);kwargs=event.edit_original_response.call_args.kwargs
         self.assertEqual(kwargs['attachments'][0].fp.read(),manual.image(state))
         view=kwargs['view'];self.assertNotIn(view.projection_button,view.children);self.assertTrue(view.earlier_button.disabled)
+        self.assertEqual([o.value for o in view.map_select.options],manual.catalog.choices())
         self.assertNotIn(state['puzzle']['map']['name'],kwargs['embed'].description)
         state=manual.act(state['id'],'11',0,skip=True);view=RoundView(manual,state);event=interaction()
         await view.earlier_button.callback(event)

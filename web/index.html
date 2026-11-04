@@ -12,7 +12,7 @@
       <div class="turn-heading"><p class="eyebrow" id="clue-title">CLUE 1 / 6</p><span id="portal-count">1 portal revealed</span></div>
       <div id="turns" class="turns" aria-label="Guess progress"></div>
       <h2 id="status">Name that arena.</h2><p id="instruction">Start with a hunch. You have six guesses.</p>
-      <form id="guess-form"><label for="guess">MAP NAME</label><input id="guess" list="maps" placeholder="Type or choose a map…" autocomplete="off" maxlength="80" required><datalist id="maps"></datalist><button id="guess-button" class="primary">Make a guess <span>↗</span></button></form>
+      <form id="guess-form"><label for="guess">MAP NAME</label><select id="guess" required><option value="" disabled selected>Choose a map…</option></select><button id="guess-button" class="primary">Make a guess <span>↗</span></button></form>
       <button id="skip" class="secondary">Next clue <span>Uses one guess</span></button>
       <p id="error" role="status"></p><div id="history"></div>
       <div id="result" hidden><pre id="share-text"></pre><button id="copy" class="primary">Copy spoiler-free result</button></div>

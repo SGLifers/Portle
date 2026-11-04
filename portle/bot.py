@@ -19,7 +19,7 @@ def round_embed(state,projection,clue_index=None):
     mode='Daily · '+data['day'] if data['mode']=='daily' else 'Practice'
     manual=data['clueSource']=='manual'
     description=f"{mode}\nClue **{data['turn']}/6** · "+(f"Screenshot **{clue_index or revealed_stage(state)}** of **{revealed_stage(state)}** revealed." if manual else f"**{data['portalCount']}** portals revealed.")
-    if active:description+='\nGuess a map or reveal the next clue. Each miss/skip uses one guess.'
+    if active:description+='\nChoose a map from the dropdown to submit a guess, or reveal the next clue. Each miss/skip uses one guess.'
     else:description+='\n**'+data['answer']+'**\n```\n'+data['share']+'\n```'
     embed=discord.Embed(title=title,description=description,color=0x78E8D1 if data['status']!='lost' else 0xE8B777)
     if data['attempts']:
@@ -38,31 +38,36 @@ async def show_round(interaction,store,state,projection='iso',replace=False,clue
         view=RoundView(store,state,projection,clue_index),allowed_mentions=discord.AllowedMentions.none())
 
 
-class GuessModal(discord.ui.Modal,title='Name the arena'):
-    answer=discord.ui.TextInput(label='Map name',placeholder='Type a map from /portle maps',min_length=1,max_length=80)
+class MapGuessSelect(discord.ui.Select):
+    def __init__(self,board,names,finished):
+        super().__init__(placeholder='Choose a map to submit your guess…',
+            options=[discord.SelectOption(label=name,value=name) for name in names],
+            min_values=1,max_values=1,disabled=finished,row=0)
+        self.board=board
 
-    def __init__(self,board):
-        super().__init__(timeout=300);self.board=board
-
-    async def on_submit(self,interaction):
-        if str(interaction.user.id)!=self.board.owner:return await report_error(interaction,'Open your own round with /portle play.')
+    async def callback(self,interaction):
         await interaction.response.defer(ephemeral=True,thinking=False)
         try:
-            state=await asyncio.to_thread(self.board.store.act,self.board.round_id,interaction.user.id,self.board.version,guess=str(self.answer.value),event_id=str(interaction.id))
+            state=await asyncio.to_thread(self.board.store.act,self.board.round_id,interaction.user.id,self.board.version,guess=self.values[0],event_id=str(interaction.id))
             await show_round(interaction,self.board.store,state,self.board.projection,replace=True)
         except GameError as exc:await report_error(interaction,str(exc))
 
-    async def on_error(self,interaction,error):
-        logging.getLogger(__name__).error('Modal failed: %s',type(error).__name__)
-        await report_error(interaction,'Could not complete that action. Your round is saved; reopen it with /portle play.')
-
 
 class RoundView(discord.ui.View):
-    def __init__(self,store,state,projection='iso',clue_index=None):
+    def __init__(self,store,state,projection='iso',clue_index=None,map_page=0):
         super().__init__(timeout=900)
         self.store=store;self.round_id=state['id'];self.owner=state['user_id'];self.version=state['version'];self.projection=projection
         finished=state['status']!='playing'
-        self.guess_button.disabled=finished;self.skip_button.disabled=finished;self.share_button.disabled=not finished
+        names=store.catalog.choices();self.map_pages=(len(names)+24)//25
+        self.map_page=max(0,min(map_page,self.map_pages-1))
+        self.map_select=MapGuessSelect(self,names[self.map_page*25:(self.map_page+1)*25],finished)
+        self.add_item(self.map_select)
+        if self.map_pages<=1:self.remove_item(self.previous_maps);self.remove_item(self.next_maps)
+        else:
+            self.previous_maps.disabled=finished or self.map_page==0
+            self.next_maps.disabled=finished or self.map_page>=self.map_pages-1
+            self.map_select.placeholder=f'Choose a map to guess · page {self.map_page+1}/{self.map_pages}'
+        self.skip_button.disabled=finished;self.share_button.disabled=not finished
         self.projection_button.label='Top view' if projection=='iso' else 'Isometric view'
         self.clue_index=clue_index or revealed_stage(state)
         if state['puzzle'].get('clueSource')=='manual':
@@ -75,15 +80,21 @@ class RoundView(discord.ui.View):
             await report_error(interaction,'This is another player\'s round. Use /portle play for your own clues.');return False
         return True
 
-    @discord.ui.button(label='Guess map',style=discord.ButtonStyle.success)
-    async def guess_button(self,interaction,button):
+    async def change_map_page(self,interaction,offset):
+        await interaction.response.defer(ephemeral=True,thinking=False)
         try:
             state=await asyncio.to_thread(self.store.get,self.round_id,interaction.user.id)
             if state['version']!=self.version or state['status']!='playing':raise GameError('This board is out of date. Use /portle play to refresh your daily round.')
-            await interaction.response.send_modal(GuessModal(self))
+            await interaction.edit_original_response(view=RoundView(self.store,state,self.projection,self.clue_index,self.map_page+offset))
         except GameError as exc:await report_error(interaction,str(exc))
 
-    @discord.ui.button(label='Reveal more / skip',style=discord.ButtonStyle.secondary)
+    @discord.ui.button(label='Previous maps',style=discord.ButtonStyle.secondary,row=1)
+    async def previous_maps(self,interaction,button):await self.change_map_page(interaction,-1)
+
+    @discord.ui.button(label='Next maps',style=discord.ButtonStyle.secondary,row=1)
+    async def next_maps(self,interaction,button):await self.change_map_page(interaction,1)
+
+    @discord.ui.button(label='Reveal more / skip',style=discord.ButtonStyle.secondary,row=2)
     async def skip_button(self,interaction,button):
         await interaction.response.defer(ephemeral=True,thinking=False)
         try:
@@ -91,25 +102,25 @@ class RoundView(discord.ui.View):
             await show_round(interaction,self.store,state,self.projection,replace=True)
         except GameError as exc:await report_error(interaction,str(exc))
 
-    @discord.ui.button(label='Top view',style=discord.ButtonStyle.secondary)
+    @discord.ui.button(label='Top view',style=discord.ButtonStyle.secondary,row=2)
     async def projection_button(self,interaction,button):
         await interaction.response.defer(ephemeral=True,thinking=False)
         state=await asyncio.to_thread(self.store.get,self.round_id,interaction.user.id)
         await show_round(interaction,self.store,state,'top' if self.projection=='iso' else 'iso',replace=True)
 
-    @discord.ui.button(label='Earlier clue',style=discord.ButtonStyle.secondary)
+    @discord.ui.button(label='Earlier clue',style=discord.ButtonStyle.secondary,row=2)
     async def earlier_button(self,interaction,button):
         await interaction.response.defer(ephemeral=True,thinking=False)
         state=await asyncio.to_thread(self.store.get,self.round_id,interaction.user.id)
         await show_round(interaction,self.store,state,replace=True,clue_index=max(1,self.clue_index-1))
 
-    @discord.ui.button(label='Later clue',style=discord.ButtonStyle.secondary)
+    @discord.ui.button(label='Later clue',style=discord.ButtonStyle.secondary,row=2)
     async def later_button(self,interaction,button):
         await interaction.response.defer(ephemeral=True,thinking=False)
         state=await asyncio.to_thread(self.store.get,self.round_id,interaction.user.id)
         await show_round(interaction,self.store,state,replace=True,clue_index=min(revealed_stage(state),self.clue_index+1))
 
-    @discord.ui.button(label='Share result',style=discord.ButtonStyle.primary)
+    @discord.ui.button(label='Share result',style=discord.ButtonStyle.primary,row=2)
     async def share_button(self,interaction,button):
         state=await asyncio.to_thread(self.store.get,self.round_id,interaction.user.id)
         try:result=share_text(state)
@@ -182,7 +193,7 @@ class PortleCommands(app_commands.Group):
         clues=('Six guesses and six manually supplied screenshots. Revisit revealed clues for free.\n' if self.store.clues else 'Six guesses. Clues show 1, 2, 4, 8, 16, then all portals. Top/isometric views are free.\n')
         await interaction.response.send_message(
             '**PORTLE** — guess the arena from real portal placements.\n'
-            +clues+'Wrong guesses and skips reveal the next clue. Invalid or repeated names are free.\n'
+            +clues+'Choose a map from the board dropdown to submit a guess. Wrong guesses and skips reveal the next clue. Invalid or repeated names are free.\n'
             +
             f'Daily resets at midnight **{self.store.zone.key}**; everyone gets the same map with private progress.\n'
             '`/portle play` daily · `/portle practice` unlimited · `/portle guess` guess daily · `/portle maps` answer list · `/portle stats` records.\n'
