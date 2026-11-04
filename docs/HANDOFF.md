@@ -289,3 +289,21 @@ Sources checked: Discord application-command authorization documentation and
 opcodes/status-code reference. Code50001 denotes Missing Access, distinct from
 50013 Missing Permissions; granting channel Administrator does not establish
 membership in a different server.
+
+## Content correction — remove incorrect Abyss clues, 2026-11-03
+
+User confirmed Discord startup now works and requested removal of the incorrect
+Abyss entry. Removed MAP_Abyss's published set and six-slot draft from the active
+manual clue index under the library's cross-process lock and atomic replacement.
+Backed up that single entry first under ignored .local/backups/removed-abyss-*.json
+with mode0600. Immutable image files remain for existing saved-round references.
+Verified Abyss is absent from both packs and published(), and all other entries
+are exactly unchanged. One published set remains, sufficient for play. This is a
+local content edit, so no code tests or bot restart are necessary; new puzzles
+read the library afresh. The answer-name roster and Atlas maps are unchanged.
+
+Read-only aggregate check before removal: production Discord DB contained0 Abyss
+puzzle snapshots; the browser preview DB contained2 historical snapshots. No
+progress/snapshots/stats were altered. Existing browser rounds retain their frozen
+images. Real token, server IDs and clue content remain outside Git. User's live
+bot is managed by the user; no bot process or preview process was stopped.
