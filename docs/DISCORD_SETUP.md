@@ -65,7 +65,8 @@ Ctrl+C stops the bot safely; restarting resumes daily progress from SQLite.
 3. Choose a map from the board's dropdown to immediately submit a guess, or skip
    to unlock the next screenshot. Earlier/Later clue
    controls must revisit revealed images without consuming a guess.
-4. Use `/portle practice` for a disposable round. Finish it using guesses or skips;
+4. As a server administrator, use `/portle practice` for a disposable round.
+   Finish it using guesses or skips;
    check that the answer appears and all six screenshots can be viewed at the end.
 5. Deliberately select **Share result** to post its colored-square result to the
    channel. It should contain no arena name or clue image.
@@ -79,6 +80,14 @@ unguessed names alphabetically, including maps without published clues. Guessed
 maps disappear from the current round's dropdown, including after resuming the
 daily. New practice starts with the full list. Free Previous/Next maps controls
 appear when more than 25 unguessed names remain.
+
+Practice requires the invoking player's **Administrator** server permission.
+Members without it receive a private explanation directing them to `/portle play`.
+The bot rechecks this permission on existing practice board controls, including
+clue review and sharing. Daily play remains available to ordinary members. This
+restriction does not require granting the bot Administrator. Discord may still
+show the practice subcommand to members; the bot enforces permission before
+creating a round. The local browser playtest has no Discord roles.
 
 ## Keep it running
 

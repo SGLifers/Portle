@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock,PropertyMock,patch
 from urllib.parse import parse_qs,urlparse
 from PIL import Image
 import discord
+from discord import app_commands
 from portle.bot import DiscordSetupError,MapGuessSelect,PortleClient,RoundView,show_round
 from portle.catalog import Catalog
 from portle.store import GameStore
@@ -20,8 +21,8 @@ class Response:
     async def defer(self,**kwargs):self.done=True;self.flags=kwargs
 
 
-def interaction(user='11'):
-    return SimpleNamespace(user=SimpleNamespace(id=int(user)),guild_id=22,id=101,response=Response(),edit_original_response=AsyncMock(),followup=SimpleNamespace(send=AsyncMock()))
+def interaction(user='11',*,administrator=False):
+    return SimpleNamespace(user=SimpleNamespace(id=int(user)),guild_id=22,id=101,permissions=discord.Permissions(administrator=administrator),response=Response(),edit_original_response=AsyncMock(),followup=SimpleNamespace(send=AsyncMock()))
 
 
 class DiscordTests(unittest.IsolatedAsyncioTestCase):
@@ -33,6 +34,44 @@ class DiscordTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(schema['name'],'portle');self.assertEqual(len(schema['options']),8)
         self.assertFalse(client.intents.message_content);self.assertFalse(client.intents.members)
         self.assertNotIn('token',str(schema).lower());await client.close()
+    async def test_practice_command_rejects_members_and_moderators_privately(self):
+        client=PortleClient(self.store);group=client.tree.get_command('portle');command=group.get_command('practice')
+        for permissions in [discord.Permissions.none(),discord.Permissions(manage_guild=True,manage_channels=True)]:
+            for deferred in [False,True]:
+                with self.subTest(permissions=permissions.value,deferred=deferred):
+                    event=interaction();event.permissions=permissions
+                    if deferred:await event.response.defer(ephemeral=True)
+                    with patch.object(self.store,'start',wraps=self.store.start) as start:
+                        with self.assertRaises(app_commands.MissingPermissions) as caught:await command._check_can_run(event)
+                        await group.on_error(event,caught.exception);start.assert_not_called()
+                    send=event.followup.send if deferred else event.response.send_message
+                    self.assertIn('server administrators',send.call_args.args[0]);self.assertIn('/portle play',send.call_args.args[0])
+                    self.assertTrue(send.call_args.kwargs['ephemeral']);event.edit_original_response.assert_not_awaited()
+        await client.close()
+    async def test_admin_can_start_private_practice_and_daily_remains_available_to_members(self):
+        client=PortleClient(self.store);group=client.tree.get_command('portle');practice=group.get_command('practice')
+        event=interaction(administrator=True);self.assertTrue(await practice._check_can_run(event))
+        await practice.callback(group,event)
+        view=event.edit_original_response.call_args.kwargs['view']
+        self.assertEqual(view.mode,'practice');self.assertTrue(event.response.flags['ephemeral'])
+        self.assertTrue(await view.interaction_check(event))
+        event=interaction();play=group.get_command('play');self.assertTrue(await play._check_can_run(event))
+        await play.callback(group,event)
+        self.assertEqual(event.edit_original_response.call_args.kwargs['view'].mode,'daily')
+        self.assertTrue(event.response.flags['ephemeral']);self.assertIsNone(group.default_permissions)
+        await client.close()
+    async def test_practice_requires_a_server_and_rechecks_permission_on_existing_boards(self):
+        client=PortleClient(self.store);practice=client.tree.get_command('portle').get_command('practice')
+        event=interaction(administrator=True);event.guild_id=None
+        with self.assertRaises(app_commands.MissingPermissions):await practice._check_can_run(event)
+        state=self.store.start('11','practice');view=RoundView(self.store,state)
+        for event in [interaction(),event,interaction('99',administrator=True)]:
+            self.assertFalse(await view.interaction_check(event))
+            self.assertTrue(event.response.send_message.call_args.kwargs['ephemeral'])
+        self.assertTrue(await view.interaction_check(interaction(administrator=True)))
+        self.assertEqual(self.store.get(state['id'],'11')['version'],0)
+        self.assertTrue(await RoundView(self.store,self.state).interaction_check(interaction()))
+        await client.close()
     async def test_guild_sync_failure_explains_installation_without_falling_back(self):
         for exception,status,code in [(discord.Forbidden,403,50001),(discord.NotFound,404,10004)]:
             with self.subTest(code=code):

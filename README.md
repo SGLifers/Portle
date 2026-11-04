@@ -34,7 +34,7 @@ selection, image rotation or enforced portal-count progression.
 - Six guesses and six screenshots. Each wrong answer or skip unlocks the next clue.
 - Review previously revealed images freely. Invalid/repeated map names are free.
 - A correct guess or six misses ends the round and unlocks all screenshots.
-- Unlimited practice, daily stats/streaks and guild participant leaderboards.
+- Unlimited admin practice in Discord, daily stats/streaks and guild participant leaderboards.
 - Explicit, spoiler-free sharing; guesses and clue boards stay private in Discord.
 
 The bundled answer roster contains 23 maps. Only published maps enter the puzzle
@@ -56,7 +56,7 @@ your configured application and bot token; never paste the token into chat.
 | Command | Behavior |
 | --- | --- |
 | `/portle play` | Open or resume the private daily |
-| `/portle practice` | Start new private practice |
+| `/portle practice` | Administrators only: start new private practice |
 | `/portle guess map_name` | Guess the daily, with autocomplete |
 | `/portle maps` | List accepted answers |
 | `/portle stats` | Daily results and guess distribution |
@@ -76,6 +76,12 @@ still supports autocomplete. Earlier/Later clue buttons revisit unlocked
 screenshots. Share result also supports practice. Controls expire after
 15 minutes or a bot restart; `/portle play` restores the daily, while practice
 requires starting a new round. No ordinary chat-message reading is needed.
+
+Discord practice requires the player's **Administrator** server permission; a
+role name alone does not grant access. Both the command and practice board
+controls check current permissions. Members can still play the daily puzzle, and
+denied practice requests respond privately. The loopback browser preview remains
+an owner playtest/editor without Discord accounts or roles.
 
 ## Data and configuration
 

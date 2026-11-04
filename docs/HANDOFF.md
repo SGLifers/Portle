@@ -392,3 +392,37 @@ No production Discord progress or clue content changed. Existing preview server
 PID213145/session70417 remains running; user-managed bot and Atlas untouched.
 User activation: one Ctrl+C / `./run.sh` restart loads both dropdown commits,
 then `/portle play` opens a fresh board with persisted daily guesses filtered.
+
+## Administrator-only Discord practice — 2026-11-04
+
+User requested restricting practice to admins. `/portle practice` now has an
+application-command runtime check requiring a server context and the invoking
+player's current Discord Administrator permission. A role named Admin without
+that permission or moderator permissions such as Manage Server are insufficient.
+Denied commands respond ephemerally with an explanation and `/portle play`
+guidance before creating any round. Command description and help identify the
+restriction. The bot itself still needs only its existing minimal permissions.
+
+RoundView records the round mode and applies the same permission check to every
+practice component interaction after checking ownership. This covers guesses,
+skips, clue review, map pagination and sharing, including boards opened before a
+player loses Administrator. Daily controls and ordinary commands remain open to
+members. The local loopback browser preview/editor has no Discord identity and
+retains practice as the owner's playtest tool; no web authentication was added.
+
+Use an enforced runtime check, not default_permissions on the practice subcommand:
+the installed SDK source and official discord.py interaction API confirm that
+Discord ignores default permission hints on subcommands. The root `/portle` group
+has no Administrator default restriction, so daily access remains available.
+Members may still see the practice command in Discord's picker but cannot run it.
+
+Validation: full Python suite passed68 tests in8.265s; git diff --check passed.
+Three new tests cover member/moderator rejection, ephemeral errors before/after
+defer, no round creation for denial, administrator success/private practice,
+ordinary-member daily success, DM rejection, permissions revoked on existing
+practice controls, foreign admin ownership rejection and unchanged round state.
+README and Discord setup guide updated. No live Discord messages, permission
+edits, bot restart, database changes or browser/Atlas changes were performed.
+User activation: Ctrl+C the existing bot, run `./run.sh` again, then test
+`/portle practice` with admin and ordinary member accounts. This restart also
+loads earlier dropdown changes if they have not yet been activated.

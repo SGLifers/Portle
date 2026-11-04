@@ -7,6 +7,14 @@ from discord import app_commands
 
 from .game import GameError,public_view,share_text,revealed_stage
 
+PRACTICE_ADMIN_MESSAGE='Practice is restricted to server administrators. Use /portle play for the daily puzzle.'
+
+
+def practice_admin_check(interaction):
+    if interaction.guild_id is None or not interaction.permissions.administrator:
+        raise app_commands.MissingPermissions(['administrator'])
+    return True
+
 
 async def report_error(interaction,message):
     if interaction.response.is_done():await interaction.followup.send(message,ephemeral=True,allowed_mentions=discord.AllowedMentions.none())
@@ -56,7 +64,7 @@ class MapGuessSelect(discord.ui.Select):
 class RoundView(discord.ui.View):
     def __init__(self,store,state,projection='iso',clue_index=None,map_page=0):
         super().__init__(timeout=900)
-        self.store=store;self.round_id=state['id'];self.owner=state['user_id'];self.version=state['version'];self.projection=projection
+        self.store=store;self.round_id=state['id'];self.owner=state['user_id'];self.version=state['version'];self.projection=projection;self.mode=state['mode']
         finished=state['status']!='playing'
         guessed={a['map_id'] for a in state['attempts'] if a['kind']=='guess'}
         guessed_names={m['name'] for m in store.catalog.maps if m['id'] in guessed}
@@ -81,6 +89,10 @@ class RoundView(discord.ui.View):
     async def interaction_check(self,interaction):
         if str(interaction.user.id)!=self.owner:
             await report_error(interaction,'This is another player\'s round. Use /portle play for your own clues.');return False
+        if self.mode=='practice':
+            try:practice_admin_check(interaction)
+            except app_commands.MissingPermissions:
+                await report_error(interaction,PRACTICE_ADMIN_MESSAGE);return False
         return True
 
     async def change_map_page(self,interaction,offset):
@@ -146,7 +158,8 @@ class PortleCommands(app_commands.Group):
         state=await asyncio.to_thread(self.store.start,interaction.user.id,guild_id=interaction.guild_id)
         await show_round(interaction,self.store,state)
 
-    @app_commands.command(description='Start an unlimited practice round, separate from daily scores')
+    @app_commands.command(description='Admins only: start a practice round, separate from daily scores')
+    @app_commands.check(practice_admin_check)
     async def practice(self,interaction:discord.Interaction):
         await interaction.response.defer(ephemeral=True,thinking=True)
         state=await asyncio.to_thread(self.store.start,interaction.user.id,'practice',interaction.guild_id)
@@ -199,11 +212,13 @@ class PortleCommands(app_commands.Group):
             +clues+'Choose a map from the board dropdown to submit a guess. Wrong guesses and skips reveal the next clue. Invalid or repeated names are free.\n'
             +
             f'Daily resets at midnight **{self.store.zone.key}**; everyone gets the same map with private progress.\n'
-            '`/portle play` daily · `/portle practice` unlimited · `/portle guess` guess daily · `/portle maps` answer list · `/portle stats` records.\n'
-            'Only **Share result** or `/portle share` posts a score publicly; the map name is omitted. Buttons expire after 15 minutes. Resume the daily with `/portle play`, or start fresh practice with `/portle practice`. Practice does not affect daily records.',ephemeral=True)
+            '`/portle play` daily · `/portle practice` admins only · `/portle guess` guess daily · `/portle maps` answer list · `/portle stats` records.\n'
+            'Only **Share result** or `/portle share` posts a score publicly; the map name is omitted. Buttons expire after 15 minutes. Resume the daily with `/portle play`. Server administrators can start fresh practice with `/portle practice`; practice does not affect daily records.',ephemeral=True)
 
     async def on_error(self,interaction,error):
         original=getattr(error,'original',error)
+        if isinstance(original,app_commands.MissingPermissions) and 'administrator' in original.missing_permissions:
+            return await report_error(interaction,PRACTICE_ADMIN_MESSAGE)
         logging.getLogger(__name__).error('Command failed: %s',type(original).__name__)
         await report_error(interaction,str(original) if isinstance(original,GameError) else 'The command could not finish. Your progress is saved; try /portle play again.')
 
