@@ -42,7 +42,7 @@ def main():
         except GameError as exc:parser.exit(2,str(exc)+'\n')
         for _ in range(args.stage-1):apply_action(state,skip=True)
         path=ROOT/'.local/sample.png';path.parent.mkdir(exist_ok=True);path.write_bytes(store.image(state,args.view));print(path);return 0
-    from .bot import PortleClient
+    from .bot import PortleClient,DiscordSetupError
     if args.command=='doctor':
         client=PortleClient(store)
         print(json.dumps({'maps':len(catalog.maps),'portals':sum(len(m.get('portals',[])) for m in catalog.maps),'clueSource':source,'publishedClueSets':len(clues.published()) if clues else None,'timezone':timezone_name,
@@ -57,6 +57,7 @@ def main():
     import discord
     try:client.run(token)
     except discord.LoginFailure:parser.exit(2,'Discord rejected the configured bot token. Update .env locally.\n')
+    except DiscordSetupError as error:parser.exit(2,str(error)+'\n')
     return 0
 
 

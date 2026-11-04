@@ -194,6 +194,10 @@ class PortleCommands(app_commands.Group):
         await report_error(interaction,str(original) if isinstance(original,GameError) else 'The command could not finish. Your progress is saved; try /portle play again.')
 
 
+class DiscordSetupError(RuntimeError):
+    """An actionable startup failure, safe to print without HTTP/token details."""
+
+
 class PortleClient(discord.Client):
     def __init__(self,store,guild_id=None):
         intents=discord.Intents.none();intents.guilds=True
@@ -201,9 +205,22 @@ class PortleClient(discord.Client):
         self.tree=app_commands.CommandTree(self);self.tree.add_command(PortleCommands(store));self.guild_id=guild_id
 
     async def setup_hook(self):
-        if self.guild_id:
-            guild=discord.Object(id=self.guild_id);self.tree.copy_global_to(guild=guild);commands=await self.tree.sync(guild=guild)
-        else:commands=await self.tree.sync()
+        try:
+            if self.guild_id:
+                guild=discord.Object(id=self.guild_id);self.tree.copy_global_to(guild=guild);commands=await self.tree.sync(guild=guild)
+            else:commands=await self.tree.sync()
+        except (discord.Forbidden,discord.NotFound) as error:
+            target='the server configured in DISCORD_GUILD_ID' if self.guild_id else 'this application'
+            message=f'Discord accepted the bot token, but could not register /portle commands for {target} (HTTP {error.status}, Discord code {error.code}).\n'
+            if self.guild_id:
+                message+='Check DISCORD_GUILD_ID in local .env: right-click the Discord server icon and Copy Server ID, not a channel, user or application ID. Environment variables override .env.\n'
+                message+='Install this same application with Add to server (Guild Install), using both bot and applications.commands scopes. Installing only to your user account is insufficient.\n'
+            else:message+='Check this application\'s installation/command settings in the Discord Developer Portal.\n'
+            if self.application_id:
+                permissions=discord.Permissions(view_channel=True,send_messages=True,embed_links=True,attach_files=True)
+                message+='Server installation link: '+discord.utils.oauth_url(self.application_id,permissions=permissions)+'\n'
+            message+='After correcting access, run ./run.sh again. See docs/DISCORD_SETUP.md.'
+            raise DiscordSetupError(message) from None
         logging.getLogger(__name__).info('Registered %d command groups',len(commands))
 
     async def on_ready(self):logging.getLogger(__name__).info('Portle connected and ready')

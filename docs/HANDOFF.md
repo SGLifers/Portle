@@ -245,3 +245,47 @@ Backend milestone b599fb2; use git log for the final editor/documentation commit
 No required implementation remains. The next user action is to capture/upload
 their first six-image set and publish it. Library/root files must be backed up
 with the database because historical rounds retain immutable image hashes.
+
+## Activation follow-up — Discord Missing Access, 2026-11-03
+
+Current state supersedes the earlier empty-library/unconfigured-token notes:
+the user published2 manual clue sets and configured a local bot token, guild ID
+and America/Los_Angeles timezone. Offline doctor passed. Their ./run.sh then
+authenticated but failed guild command sync with HTTP403 / Discord50001.
+
+Read-only diagnosis used the explicitly configured local credential in memory:
+GET /oauth2/applications/@me returned200, application name Portle; GET of the
+configured guild returned404 /10004 Unknown Guild. This establishes accepted
+credentials and inaccessible configured guild, but does not distinguish wrong
+server ID from absent bot membership. No token was printed or stored elsewhere;
+no credentials were searched for, no settings changed and no commands registered.
+An installation URL for the authenticated application was given to the user,
+with bot + applications.commands and permissions52224 (View Channels, Send
+Messages, Embed Links, Attach Files). Final link permits selecting the correct
+server rather than locking to a potentially wrong configured ID. Real Discord
+identifiers remain outside Git.
+
+PortleClient.setup_hook now converts Forbidden/NotFound command-sync failures to
+DiscordSetupError with HTTP/Discord codes, server-ID vs channel/application-ID
+guidance, environment precedence, Guild Install / Add to server vs user-only
+installation, and an install link for the authenticated application. It does not
+silently fall back to global sync or swallow unrelated HTTP failures. CLI catches
+this error and exits2 with a concise message instead of a traceback; raw HTTP
+error content is omitted. DISCORD_SETUP.md covers the same recovery steps and
+clarifies that offline doctor does not check live authorization.
+
+Verification: .venv/bin/python -m unittest discover -s tests -v passed57 tests in
+7.968s. Three added startup tests cover403/50001 and404/10004, scopes/minimal
+permissions in the generated URL, no global fallback, no raw-error leakage,
+successful guild sync, unrelated HTTP failure propagation and clean CLI exit2.
+The initial new test used the wrong SDK application-ID field; corrected fixture
+to client._connection.application_id before the successful full run.
+git diff --check passed. No preview/server restarts, live game-host interaction,
+credential edits or asset changes. The user must install this application into
+the intended server and verify DISCORD_GUILD_ID, then rerun ./run.sh and test
+/portle practice. Live Discord gameplay is still unverified.
+
+Sources checked: Discord application-command authorization documentation and
+opcodes/status-code reference. Code50001 denotes Missing Access, distinct from
+50013 Missing Permissions; granting channel Administrator does not establish
+membership in a different server.

@@ -96,6 +96,18 @@ private because they contain Discord identifiers and the puzzle schedule seed.
 - **Commands missing:** check that the bot is installed with both scopes, the guild
   ID matches (if set), command synchronization succeeded, and the channel permits
   application commands. Allow time for global commands to propagate.
+- **403 / 50001 Missing Access while starting:** login succeeded, but command
+  registration cannot access the configured server. Verify `DISCORD_GUILD_ID` is
+  the **server** ID (right-click its icon → Copy Server ID), rather than a channel,
+  application or user ID. Check that any shell environment override agrees with
+  `.env`. In the Developer Portal, install the same application as a **Guild
+  Install / Add to server**, with `bot` and `applications.commands`; **Add to my
+  apps** alone is insufficient. Confirm the bot is in that server's member list.
+  The startup error provides the matching application's installation link. If
+  Discord reports Unknown Guild (10004), the ID may be wrong or the bot may not
+  belong to that server. Correct installation/ID and rerun `./run.sh`; changing
+  channel permissions or granting Administrator does not fix server membership.
+  Offline `doctor` checks configuration presence, not live Discord authorization.
 - **Images missing / share fails:** check the four channel permissions above and
   any channel-specific permission overrides.
 - **Buttons expired after restart or 15 minutes:** `/portle play` restores the
