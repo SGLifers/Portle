@@ -16,6 +16,21 @@ class Catalog:
     revision: str
 
     @classmethod
+    def names(cls,path=None):
+        data=json.loads(Path(path or Path(__file__).with_name('map_names.json')).read_text())
+        maps=tuple({k:m.get(k,[]) if k=='aliases' else m[k] for k in ('id','name','aliases')} for m in data['maps'])
+        if len(maps)<2:raise ValueError('At least two answer names are required')
+        names={};ids=set()
+        for m in maps:
+            if m['id'] in ids:raise ValueError('Duplicate map ID')
+            ids.add(m['id'])
+            for name in [m['name'],*m['aliases']]:
+                key=normalize(name)
+                if not key or (key in names and names[key]!=m['id']):raise ValueError('Ambiguous map alias')
+                names[key]=m['id']
+        return cls(maps,hashlib.sha256(json.dumps(maps,sort_keys=True).encode()).hexdigest())
+
+    @classmethod
     def load(cls,path):
         data=json.loads(Path(path).read_text())
         if data.get('format')!='portle-catalog' or data.get('version')!=1:raise ValueError('Unsupported catalog; run import-assets')

@@ -8,6 +8,7 @@ from PIL import Image
 import discord
 from portle.bot import PortleClient,RoundView,show_round
 from portle.store import GameStore
+from portle.clues import ClueLibrary
 from helpers import fixture_catalog
 
 
@@ -54,3 +55,17 @@ class DiscordTests(unittest.IsolatedAsyncioTestCase):
         event=interaction();await view.share_button.callback(event)
         text=event.response.send_message.call_args.args[0];self.assertNotIn(state['puzzle']['map']['name'],text)
         self.assertFalse(event.response.send_message.call_args.kwargs.get('ephemeral',False))
+    async def test_manual_board_uses_authored_bytes_and_review_controls(self):
+        library=ClueLibrary(Path(self.temp.name)/'clues')
+        for i in range(1,7):
+            output=BytesIO();Image.new('RGB',(32,24),(i*30,0,0)).save(output,format='PNG');library.upload(self.store.catalog.maps[0]['id'],i,output.getvalue())
+        library.publish(self.store.catalog.maps[0]['id'])
+        manual=GameStore(Path(self.temp.name)/'manual.db',self.store.catalog,clues=library);state=manual.start('11')
+        event=interaction();await show_round(event,manual,state);kwargs=event.edit_original_response.call_args.kwargs
+        self.assertEqual(kwargs['attachments'][0].fp.read(),manual.image(state))
+        view=kwargs['view'];self.assertNotIn(view.projection_button,view.children);self.assertTrue(view.earlier_button.disabled)
+        self.assertNotIn(state['puzzle']['map']['name'],kwargs['embed'].description)
+        state=manual.act(state['id'],'11',0,skip=True);view=RoundView(manual,state);event=interaction()
+        await view.earlier_button.callback(event)
+        self.assertEqual(manual.get(state['id'],'11')['version'],1)
+        self.assertEqual(event.edit_original_response.call_args.kwargs['attachments'][0].fp.read(),manual.image(state,clue=1))

@@ -1,0 +1,134 @@
+import base64
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime,timedelta,timezone
+from http.cookiejar import CookieJar
+from io import BytesIO
+import json
+from pathlib import Path
+import tempfile
+import threading
+import unittest
+import urllib.request
+import urllib.error
+from PIL import Image,PngImagePlugin
+from portle.catalog import Catalog
+from portle.clues import ClueLibrary
+from portle.game import GameError,public_view
+from portle.preview import server
+from portle.store import GameStore
+
+
+def screenshot(number=1):
+    buffer=BytesIO();info=PngImagePlugin.PngInfo();info.add_text('Answer','Academy-secret-filename')
+    Image.new('RGB',(32,24),(number*30,10,15)).save(buffer,format='PNG',pnginfo=info);return buffer.getvalue()
+
+
+class ManualFixture:
+    def setUp(self):
+        self.temp=tempfile.TemporaryDirectory();self.root=Path(self.temp.name);self.library=ClueLibrary(self.root/'clues')
+        self.catalog=Catalog.names();self.mid=self.catalog.maps[0]['id'];self.now=datetime(2026,11,3,12,tzinfo=timezone.utc)
+        self.store=GameStore(self.root/'game.db',self.catalog,clock=lambda:self.now,clues=self.library)
+    def tearDown(self):self.temp.cleanup()
+    def pack(self):
+        for i in range(1,7):self.library.upload(self.mid,i,screenshot(i))
+        self.library.publish(self.mid)
+
+
+class ManualTests(ManualFixture,unittest.TestCase):
+    def test_names_only_catalog_has_no_game_geometry(self):
+        self.assertGreater(len(self.catalog.maps),1)
+        self.assertTrue(all('portals' not in m for m in self.catalog.maps))
+    def test_empty_library_and_drafts_cannot_be_played(self):
+        for i in range(1,6):self.library.upload(self.mid,i,screenshot(i))
+        with self.assertRaises(GameError):self.library.publish(self.mid)
+        with self.assertRaises(GameError):self.store.start('u')
+    def test_images_preserve_pixels_strip_metadata_and_use_opaque_ids(self):
+        digest=self.library.upload(self.mid,1,screenshot())
+        self.assertEqual(len(digest),64)
+        image=Image.open(BytesIO(self.library.image(digest)))
+        self.assertEqual(image.size,(32,24));self.assertEqual(image.getpixel((0,0)),(30,10,15));self.assertEqual(image.info,{})
+    def test_invalid_images_slots_and_path_traversal_rejected(self):
+        for content in [b'not an image',b'<svg/>',b'']:
+            with self.assertRaises(GameError):self.library.upload(self.mid,1,content)
+        for slot in [0,7,True,'1']:
+            with self.assertRaises(GameError):self.library.upload(self.mid,slot,screenshot())
+        with self.assertRaises(GameError):self.library.image('../index.json')
+    def test_six_screenshots_are_revealed_in_order_and_future_clues_denied(self):
+        self.pack();s=self.store.start('u')
+        for stage in range(1,7):
+            self.assertEqual(Image.open(BytesIO(self.store.image(s))).getpixel((0,0)),(stage*30,10,15))
+            if stage<6:
+                with self.assertRaises(GameError):self.store.image(s,clue=stage+1)
+            self.assertEqual(Image.open(BytesIO(self.store.image(s,clue=1))).getpixel((0,0)),(30,10,15))
+            s=self.store.act(s['id'],'u',s['version'],skip=True)
+        self.assertEqual(s['status'],'lost');self.assertEqual(public_view(s)['revealedClues'],6)
+    def test_answer_and_source_hashes_not_in_active_payload(self):
+        self.pack();s=self.store.start('u');view=public_view(s)
+        self.assertEqual(view['clueSource'],'manual');self.assertIsNone(view['portalCount'])
+        payload=json.dumps(view)
+        for secret in [s['puzzle']['map']['name'],self.mid,*s['puzzle']['clueImages']]:self.assertNotIn(secret,payload)
+    def test_correct_answer_unlocks_final_authored_image(self):
+        self.pack();s=self.store.start('u');s=self.store.act(s['id'],'u',0,guess=s['puzzle']['map']['name'])
+        self.assertEqual(s['status'],'won');self.assertEqual(Image.open(BytesIO(self.store.image(s))).getpixel((0,0)),(180,10,15))
+    def test_republishing_and_clearing_draft_do_not_change_started_daily(self):
+        self.pack();s=self.store.start('u');original=self.store.image(s)
+        self.library.upload(self.mid,1,screenshot(5));self.library.publish(self.mid);self.library.clear(self.mid,2)
+        self.assertEqual(self.store.image(self.store.start('u')),original)
+        self.now+=timedelta(days=1)
+        self.assertNotEqual(self.store.image(self.store.start('u')),original)
+    def test_unpublish_keeps_started_round_and_restarts_safe(self):
+        self.pack();s=self.store.start('u');self.library.unpublish(self.mid)
+        restored=GameStore(self.root/'game.db',self.catalog,clock=lambda:self.now,clues=ClueLibrary(self.root/'clues'))
+        self.assertEqual(restored.start('u'),s);self.assertEqual(restored.image(s),self.store.image(s))
+        self.now+=timedelta(days=1)
+        with self.assertRaises(GameError):restored.start('u')
+    def test_changed_media_is_detected(self):
+        digest=self.library.upload(self.mid,1,screenshot());(self.library.root/'images'/(digest+'.png')).write_bytes(b'changed')
+        with self.assertRaises(GameError):self.library.image(digest)
+    def test_drafts_persist_and_do_not_replace_published_version(self):
+        self.pack();published=self.library.published()[self.mid];self.library.clear(self.mid,1)
+        other=ClueLibrary(self.root/'clues');self.assertEqual(other.published()[self.mid],published)
+        self.assertIsNone(other.management(self.catalog)[0]['draft'][0])
+    def test_parallel_uploads_do_not_lose_other_slots(self):
+        def upload(i):return ClueLibrary(self.root/'clues').upload(self.mid,i,screenshot(i))
+        with ThreadPoolExecutor(max_workers=4) as pool:digests=list(pool.map(upload,range(1,7)))
+        self.library.publish(self.mid);self.assertEqual(self.library.published()[self.mid]['images'],digests)
+    def test_manual_stats_are_separate_from_legacy_generated_rounds(self):
+        from helpers import fixture_catalog
+        legacy=GameStore(self.root/'game.db',fixture_catalog(),clock=lambda:self.now)
+        old=legacy.start('u');legacy.act(old['id'],'u',0,guess=old['puzzle']['map']['name'])
+        self.assertEqual(self.store.stats('u')['played'],0)
+        self.pack();current=self.store.start('u');self.store.act(current['id'],'u',0,guess=current['puzzle']['map']['name'])
+        self.assertEqual(self.store.stats('u')['played'],1);self.assertEqual(legacy.stats('u')['played'],1)
+
+
+class ManualHttpTests(ManualFixture,unittest.TestCase):
+    def setUp(self):
+        super().setUp();self.http=server(self.store,0)
+        self.thread=threading.Thread(target=self.http.serve_forever,daemon=True);self.thread.start()
+        self.base='http://127.0.0.1:'+str(self.http.server_port)
+        self.client=urllib.request.build_opener(urllib.request.HTTPCookieProcessor(CookieJar()))
+        self.key=json.loads(self.request('/api/manage/info')[1])['key']
+    def tearDown(self):self.http.shutdown();self.http.server_close();self.thread.join();super().tearDown()
+    def request(self,path,payload=None,headers=None):
+        request=urllib.request.Request(self.base+path,data=json.dumps(payload).encode() if payload is not None else None,headers=headers or {})
+        try:
+            with self.client.open(request,timeout=5) as response:return response.status,response.read()
+        except urllib.error.HTTPError as exc:return exc.code,exc.read()
+    def test_editor_mutations_require_capability_and_same_origin(self):
+        payload={'mapId':self.mid,'slot':1,'image':base64.b64encode(screenshot()).decode()}
+        self.assertEqual(self.request('/api/manage/upload',payload)[0],403)
+        self.assertEqual(self.request('/api/manage/upload',payload,{'X-Portle-Editor':self.key,'Origin':'https://foreign.example'})[0],403)
+        self.assertEqual(self.request('/api/manage/upload',payload,{'X-Portle-Editor':self.key})[0],200)
+    def test_editor_html_and_private_files_not_exposed(self):
+        self.assertIn(b'Build a clue set',self.request('/manage')[1])
+        self.assertEqual(self.request('/data/clues/index.json')[0],404)
+        self.assertEqual(self.request('/api/manage/image/../../index.json')[0],404)
+    def test_public_image_endpoint_guards_reveal_and_owner(self):
+        self.pack();state=json.loads(self.request('/api/start',{'mode':'daily'})[1]);rid=state['id']
+        self.assertEqual(self.request(f'/api/image/{rid}.png?version=0&clue=1')[0],200)
+        self.assertEqual(self.request(f'/api/image/{rid}.png?version=0&clue=2')[0],400)
+        with self.assertRaises(urllib.error.HTTPError):urllib.request.urlopen(self.base+f'/api/image/{rid}.png?version=0&clue=1')
+
+
+if __name__=='__main__':unittest.main()

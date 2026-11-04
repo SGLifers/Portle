@@ -176,3 +176,45 @@ command; start another `/portle practice`. No automated daily channel posts,
 notifications, production hosting/service installation or shared-channel game
 mode were requested or enabled. Changing catalog/timezone can alter future daily
 puzzles; retain the private production DB and seed.
+
+## Latest request — manual screenshot clues (implementation/QA in progress)
+
+The user explicitly changed the clue source: they will capture screenshots in
+Portal Atlas and Portle should expose those images. They also authorized Atlas
+portal hiding controls. This supersedes the older generated-clue-only and
+Atlas-read-only assumptions above. AGENTS.md has been updated accordingly.
+
+Manual mode is now the CLI default (`PORTLE_CLUE_SOURCE=manual`). It uses the
+tracked names-only roster `portle/map_names.json`, requiring no Atlas geometry or
+game installation. The legacy generated renderer remains available only through
+explicit `PORTLE_CLUE_SOURCE=generated`; there is no silent fallback. Legacy
+rounds remain in SQLite and manual rounds/stats use a separate puzzle namespace.
+
+`ClueLibrary` stores private drafts and immutable published sets under ignored
+`data/clues/`. Six screenshot slots per map. Uploads are validated, preserve pixel
+dimensions/orientation, normalize to PNG and strip metadata. No cropping, resizing,
+annotation, inference or generated clues. Draft changes do not alter published
+images, and publishing freezes six content hashes into future puzzle snapshots.
+Earlier snapshots keep old files even after republish/unpublish. One published
+map is enough to play; the full names roster remains valid for guesses.
+
+Added loopback-only `/manage` authoring UI and allowlisted editor API with same-
+origin/Host guards plus a per-process editor mutation token. This editor is for
+the local installation owner; it is not a publicly authenticated admin service.
+Player image URLs still enforce round ownership/version and unlocked clue index;
+public round DTOs omit answer, image hashes, source paths and original filenames.
+Discord and browser both display the same normalized screenshot bytes and support
+reviewing already revealed clues without spending a guess. Manual boards have no
+top/isometric projection controls; images are shown as authored.
+
+Current real preview restarted as PID1418589 at localhost8742, same private preview
+DB but new manual puzzle namespace. The real manual library is empty: no user
+clues were invented or published. It should show the empty/setup screen linking
+to the editor. Bot remains disconnected; no credentials requested/searched for.
+Atlas remains at localhost8741, with visibility controls committed separately.
+
+Early validation: existing37 tests passed, then52 including manual library/store,
+HTTP and mocked Discord cases. Two additional tests cover parallel uploads and
+manual/legacy stat separation; final rerun/QA pending. UI syntax checks pass.
+Remaining: real editor upload/publish/play/review QA in a separate disposable
+library/database, empty real-editor/mobile checks, docs migration and final commit.

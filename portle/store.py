@@ -13,9 +13,10 @@ from .game import GameError,new_state,apply_action,portal_order
 
 
 class GameStore:
-    def __init__(self,path,catalog,timezone_name='UTC',clock=None):
+    def __init__(self,path,catalog,timezone_name='UTC',clock=None,clues=None):
         self.path=Path(path);self.path.parent.mkdir(parents=True,exist_ok=True)
         self.catalog=catalog;self.zone=ZoneInfo(timezone_name);self.clock=clock or (lambda:datetime.now(timezone.utc))
+        self.clues=clues
         with self.connection() as db:
             db.executescript('''
                 PRAGMA journal_mode=WAL;
@@ -45,15 +46,21 @@ class GameStore:
     def today(self):return self.clock().astimezone(self.zone).date()
 
     def _puzzle(self,db,mode):
-        today=self.today().isoformat();pid='daily:'+today if mode=='daily' else 'practice:'+uuid.uuid4().hex
+        today=self.today().isoformat();pid=('manual:' if self.clues else '')+('daily:'+today if mode=='daily' else 'practice:'+uuid.uuid4().hex)
         row=db.execute('SELECT snapshot FROM puzzles WHERE id=?',(pid,)).fetchone()
         if row:return json.loads(row['snapshot'])
         seed=db.execute('SELECT value FROM settings WHERE key=?',('seed',)).fetchone()['value']
         maps=sorted(self.catalog.maps,key=lambda m:m['id'])
+        published=self.clues.published() if self.clues else {}
+        if self.clues:
+            maps=[m for m in maps if m['id'] in published]
+            if not maps:raise GameError('No manual clues are published yet. Add six screenshots in the local clue editor.')
         rng=random.Random(hashlib.sha256((seed+self.catalog.revision).encode()).hexdigest());rng.shuffle(maps)
         selected=maps[(self.today()-date(2026,1,1)).days%len(maps)] if mode=='daily' else secrets.choice(maps)
         order_seed=hashlib.sha256((seed+pid+self.catalog.revision).encode()).hexdigest()
-        puzzle={'id':pid,'day':today,'map':selected,'catalogRevision':self.catalog.revision,'order':portal_order(selected['portals'],order_seed)}
+        puzzle={'id':pid,'day':today,'map':selected,'catalogRevision':self.catalog.revision}
+        if self.clues:puzzle.update(clueSource='manual',clueImages=list(published[selected['id']]['images']),cluePack=published[selected['id']]['id'])
+        else:puzzle['order']=portal_order(selected['portals'],order_seed)
         db.execute('INSERT INTO puzzles VALUES (?,?)',(pid,json.dumps(puzzle)))
         return puzzle
 
@@ -77,6 +84,17 @@ class GameStore:
 
     def get(self,round_id,user_id):
         with self.connection() as db:return self._owned(db,round_id,user_id)
+
+    def image(self,state,projection='iso',clue=None):
+        if state['puzzle'].get('clueSource')=='manual':
+            from .game import revealed_stage
+            unlocked=revealed_stage(state)
+            if clue is None:clue=unlocked
+            if not isinstance(clue,int) or isinstance(clue,bool) or not 1<=clue<=unlocked:raise GameError('That screenshot is not revealed yet.')
+            if not self.clues:raise GameError('Open this round using its manual clue library.')
+            return self.clues.image(state['puzzle']['clueImages'][clue-1])
+        from .render import png
+        return png(state,projection)
 
     def act(self,round_id,user_id,version,*,guess=None,skip=False,event_id=None):
         user_id=str(user_id)
@@ -104,7 +122,7 @@ class GameStore:
             return state
 
     def stats(self,user_id):
-        with self.connection() as db:states=[json.loads(r['state']) for r in db.execute('SELECT state FROM rounds WHERE user_id=? AND mode=?',(str(user_id),'daily'))]
+        with self.connection() as db:states=[json.loads(r['state']) for r in db.execute('SELECT state FROM rounds WHERE user_id=? AND mode=? AND puzzle_id LIKE ?',(str(user_id),'daily',('manual:' if self.clues else '')+'daily:%'))]
         finished=sorted((s for s in states if s['status']!='playing'),key=lambda s:s['puzzle']['day'])
         wins=[s for s in finished if s['status']=='won'];distribution={str(i):0 for i in range(1,7)}
         for s in wins:distribution[str(len(s['attempts']))]+=1

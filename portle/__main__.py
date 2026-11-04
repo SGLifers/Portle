@@ -21,25 +21,31 @@ def main():
     catalog_path=Path(os.getenv('PORTLE_CATALOG',str(ROOT/'data/catalog.json')))
     if args.command=='import-assets':
         print(json.dumps(import_catalog(args.source,catalog_path)));return 0
-    if not catalog_path.exists():parser.exit(2,'Import the real portal data first: .venv/bin/python -m portle import-assets\n')
-    catalog=Catalog.load(catalog_path)
+    source=os.getenv('PORTLE_CLUE_SOURCE','manual')
+    if source not in ('manual','generated'):parser.exit(2,'PORTLE_CLUE_SOURCE must be manual or generated.\n')
+    from .clues import ClueLibrary
+    clues=ClueLibrary(Path(os.getenv('PORTLE_CLUES',str(ROOT/'data/clues')))) if source=='manual' else None
+    if source=='manual':catalog=Catalog.names(os.getenv('PORTLE_CATALOG'))
+    else:
+        if not catalog_path.exists():parser.exit(2,'Import the real portal data first: .venv/bin/python -m portle import-assets\n')
+        catalog=Catalog.load(catalog_path)
     from .store import GameStore
     timezone_name=os.getenv('PORTLE_TIMEZONE','UTC')
     if args.command=='preview':
         from .preview import serve
-        serve(GameStore(ROOT/'.local/preview.sqlite3',catalog,timezone_name),args.port);return 0
+        serve(GameStore(ROOT/'.local/preview.sqlite3',catalog,timezone_name,clues=clues),args.port);return 0
     database=Path(os.getenv('PORTLE_DATABASE',str(ROOT/'data/portle.sqlite3')))
-    store=GameStore(database,catalog,timezone_name)
+    store=GameStore(database,catalog,timezone_name,clues=clues)
     if args.command=='render-sample':
         from .game import apply_action
         from .render import png
         state=store.start('local-art-preview','practice')
         for _ in range(args.stage-1):apply_action(state,skip=True)
-        path=ROOT/'.local/sample.png';path.parent.mkdir(exist_ok=True);path.write_bytes(png(state,args.view));print(path);return 0
+        path=ROOT/'.local/sample.png';path.parent.mkdir(exist_ok=True);path.write_bytes(store.image(state,args.view));print(path);return 0
     from .bot import PortleClient
     if args.command=='doctor':
         client=PortleClient(store)
-        print(json.dumps({'maps':len(catalog.maps),'portals':sum(len(m['portals']) for m in catalog.maps),'timezone':timezone_name,
+        print(json.dumps({'maps':len(catalog.maps),'portals':sum(len(m.get('portals',[])) for m in catalog.maps),'clueSource':source,'publishedClueSets':len(clues.published()) if clues else None,'timezone':timezone_name,
             'discordSdk':__import__('discord').__version__,'commands':client.tree.get_commands()[0].to_dict(client.tree),
             'tokenConfigured':bool(os.getenv('DISCORD_BOT_TOKEN')),'networkConnectionAttempted':False},indent=2))
         return 0

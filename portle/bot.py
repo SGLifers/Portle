@@ -5,8 +5,7 @@ import logging
 import discord
 from discord import app_commands
 
-from .game import GameError,public_view,share_text
-from .render import png
+from .game import GameError,public_view,share_text,revealed_stage
 
 
 async def report_error(interaction,message):
@@ -14,11 +13,12 @@ async def report_error(interaction,message):
     else:await interaction.response.send_message(message,ephemeral=True,allowed_mentions=discord.AllowedMentions.none())
 
 
-def round_embed(state,projection):
+def round_embed(state,projection,clue_index=None):
     data=public_view(state);active=data['status']=='playing'
     title='Which arena is this?' if active else ('Arena identified!' if data['status']=='won' else 'The arena was '+data['answer'])
     mode='Daily · '+data['day'] if data['mode']=='daily' else 'Practice'
-    description=f"{mode}\nClue **{data['turn']}/6** · **{data['portalCount']}** portals revealed."
+    manual=data['clueSource']=='manual'
+    description=f"{mode}\nClue **{data['turn']}/6** · "+(f"Screenshot **{clue_index or revealed_stage(state)}** of **{revealed_stage(state)}** revealed." if manual else f"**{data['portalCount']}** portals revealed.")
     if active:description+='\nGuess a map or reveal the next clue. Each miss/skip uses one guess.'
     else:description+='\n**'+data['answer']+'**\n```\n'+data['share']+'\n```'
     embed=discord.Embed(title=title,description=description,color=0x78E8D1 if data['status']!='lost' else 0xE8B777)
@@ -26,16 +26,16 @@ def round_embed(state,projection):
         history='\n'.join(f"{i+1}. "+('🟩 ' if a['correct'] else '⬜ ' if a['kind']=='skip' else '🟥 ')+(a['name'] or 'Skipped') for i,a in enumerate(data['attempts']))
         embed.add_field(name='Your guesses',value=history,inline=False)
     embed.set_image(url='attachment://portle-clue.png')
-    embed.set_footer(text=f"{'Top' if projection=='top' else 'Isometric'} view · real asset placements · /portle maps for valid answers")
+    embed.set_footer(text=('Manually supplied screenshot' if manual else f"{'Top' if projection=='top' else 'Isometric'} view · real asset placements")+' · /portle maps for valid answers')
     return embed
 
 
-async def show_round(interaction,store,state,projection='iso',replace=False):
+async def show_round(interaction,store,state,projection='iso',replace=False,clue_index=None):
     if not interaction.response.is_done():await interaction.response.defer(ephemeral=True,thinking=not replace)
-    image=await asyncio.to_thread(png,state,projection)
-    await interaction.edit_original_response(content=None,embed=round_embed(state,projection),
+    image=await asyncio.to_thread(store.image,state,projection,clue_index)
+    await interaction.edit_original_response(content=None,embed=round_embed(state,projection,clue_index),
         attachments=[discord.File(BytesIO(image),filename='portle-clue.png')],
-        view=RoundView(store,state,projection),allowed_mentions=discord.AllowedMentions.none())
+        view=RoundView(store,state,projection,clue_index),allowed_mentions=discord.AllowedMentions.none())
 
 
 class GuessModal(discord.ui.Modal,title='Name the arena'):
@@ -58,12 +58,17 @@ class GuessModal(discord.ui.Modal,title='Name the arena'):
 
 
 class RoundView(discord.ui.View):
-    def __init__(self,store,state,projection='iso'):
+    def __init__(self,store,state,projection='iso',clue_index=None):
         super().__init__(timeout=900)
         self.store=store;self.round_id=state['id'];self.owner=state['user_id'];self.version=state['version'];self.projection=projection
         finished=state['status']!='playing'
         self.guess_button.disabled=finished;self.skip_button.disabled=finished;self.share_button.disabled=not finished
         self.projection_button.label='Top view' if projection=='iso' else 'Isometric view'
+        self.clue_index=clue_index or revealed_stage(state)
+        if state['puzzle'].get('clueSource')=='manual':
+            self.remove_item(self.projection_button)
+            self.earlier_button.disabled=self.clue_index<=1;self.later_button.disabled=self.clue_index>=revealed_stage(state)
+        else:self.remove_item(self.earlier_button);self.remove_item(self.later_button)
 
     async def interaction_check(self,interaction):
         if str(interaction.user.id)!=self.owner:
@@ -91,6 +96,18 @@ class RoundView(discord.ui.View):
         await interaction.response.defer(ephemeral=True,thinking=False)
         state=await asyncio.to_thread(self.store.get,self.round_id,interaction.user.id)
         await show_round(interaction,self.store,state,'top' if self.projection=='iso' else 'iso',replace=True)
+
+    @discord.ui.button(label='Earlier clue',style=discord.ButtonStyle.secondary)
+    async def earlier_button(self,interaction,button):
+        await interaction.response.defer(ephemeral=True,thinking=False)
+        state=await asyncio.to_thread(self.store.get,self.round_id,interaction.user.id)
+        await show_round(interaction,self.store,state,replace=True,clue_index=max(1,self.clue_index-1))
+
+    @discord.ui.button(label='Later clue',style=discord.ButtonStyle.secondary)
+    async def later_button(self,interaction,button):
+        await interaction.response.defer(ephemeral=True,thinking=False)
+        state=await asyncio.to_thread(self.store.get,self.round_id,interaction.user.id)
+        await show_round(interaction,self.store,state,replace=True,clue_index=min(revealed_stage(state),self.clue_index+1))
 
     @discord.ui.button(label='Share result',style=discord.ButtonStyle.primary)
     async def share_button(self,interaction,button):
@@ -162,10 +179,11 @@ class PortleCommands(app_commands.Group):
 
     @app_commands.command(description='How to play Portle')
     async def help(self,interaction:discord.Interaction):
+        clues=('Six guesses and six manually supplied screenshots. Revisit revealed clues for free.\n' if self.store.clues else 'Six guesses. Clues show 1, 2, 4, 8, 16, then all portals. Top/isometric views are free.\n')
         await interaction.response.send_message(
             '**PORTLE** — guess the arena from real portal placements.\n'
-            'Six guesses. Clues show 1, 2, 4, 8, 16, then all portals. Wrong guesses and skips advance the clue. Invalid or repeated names are free.\n'
-            'Top/isometric views show the same portals and do not use a guess.\n'
+            +clues+'Wrong guesses and skips reveal the next clue. Invalid or repeated names are free.\n'
+            +
             f'Daily resets at midnight **{self.store.zone.key}**; everyone gets the same map with private progress.\n'
             '`/portle play` daily · `/portle practice` unlimited · `/portle guess` guess daily · `/portle maps` answer list · `/portle stats` records.\n'
             'Only **Share result** or `/portle share` posts a score publicly; the map name is omitted. Buttons expire after 15 minutes. Resume the daily with `/portle play`, or start fresh practice with `/portle practice`. Practice does not affect daily records.',ephemeral=True)

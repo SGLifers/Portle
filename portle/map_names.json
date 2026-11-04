@@ -1,0 +1,126 @@
+{
+  "format": "portle-answer-list",
+  "version": 1,
+  "maps": [
+    {
+      "id": "MAP_Abyss",
+      "name": "Abyss",
+      "aliases": []
+    },
+    {
+      "id": "MAP_Academy",
+      "name": "Academy",
+      "aliases": []
+    },
+    {
+      "id": "MAP_Bypass",
+      "name": "Bypass",
+      "aliases": []
+    },
+    {
+      "id": "MAP_Containment",
+      "name": "Containment",
+      "aliases": []
+    },
+    {
+      "id": "MAP_Core",
+      "name": "Core",
+      "aliases": []
+    },
+    {
+      "id": "MAP_Eden",
+      "name": "Eden",
+      "aliases": []
+    },
+    {
+      "id": "MAP_Erosion",
+      "name": "Erosion",
+      "aliases": []
+    },
+    {
+      "id": "MAP_Foregone_Destruction",
+      "name": "Foregone Destruction",
+      "aliases": [
+        "Foregone",
+        "FD"
+      ]
+    },
+    {
+      "id": "MAP_Fracture",
+      "name": "Fracture",
+      "aliases": []
+    },
+    {
+      "id": "MAP_Frontier",
+      "name": "Frontier",
+      "aliases": []
+    },
+    {
+      "id": "MAP_Glacier",
+      "name": "Glacier",
+      "aliases": []
+    },
+    {
+      "id": "MAP_Grit",
+      "name": "Grit",
+      "aliases": []
+    },
+    {
+      "id": "MAP_Hammerhead",
+      "name": "Hammerhead",
+      "aliases": []
+    },
+    {
+      "id": "MAP_Inferno",
+      "name": "Inferno",
+      "aliases": []
+    },
+    {
+      "id": "MAP_Karman_Station",
+      "name": "Karman Station",
+      "aliases": []
+    },
+    {
+      "id": "MAP_Oasis",
+      "name": "Oasis",
+      "aliases": []
+    },
+    {
+      "id": "MAP_Ozone_Night",
+      "name": "Ozone Night",
+      "aliases": [
+        "Ozone"
+      ]
+    },
+    {
+      "id": "MAP_Runway",
+      "name": "Runway",
+      "aliases": []
+    },
+    {
+      "id": "MAP_Sanctum",
+      "name": "Sanctum",
+      "aliases": []
+    },
+    {
+      "id": "MAP_Stadium",
+      "name": "Stadium",
+      "aliases": []
+    },
+    {
+      "id": "MAP_Terra13",
+      "name": "Terra13",
+      "aliases": []
+    },
+    {
+      "id": "MAP_TriHard",
+      "name": "TriHard",
+      "aliases": []
+    },
+    {
+      "id": "MAP_Zenith",
+      "name": "Zenith",
+      "aliases": []
+    }
+  ]
+}

@@ -27,10 +27,15 @@ def new_state(round_id,user_id,puzzle,mode):
 
 
 def clue_count(state):
+    if state['puzzle'].get('clueSource')=='manual':return None
     total=len(state['puzzle']['map']['portals'])
     if state['status']!='playing':return total
     turn=len(state['attempts'])
     return total if turn>=5 else min(total,REVEALS[turn])
+
+
+def revealed_stage(state):
+    return 6 if state['status']!='playing' else min(6,len(state['attempts'])+1)
 
 
 def apply_action(state,resolved=None,skip=False):
@@ -58,6 +63,7 @@ def public_view(state):
     turn=len(state['attempts'])+(state['status']=='playing')
     result={'id':state['id'],'version':state['version'],'mode':state['mode'],'day':state['puzzle']['day'],
         'status':state['status'],'turn':max(1,min(MAX_TURNS,turn)),'maxTurns':MAX_TURNS,
+        'clueSource':state['puzzle'].get('clueSource','generated'),'revealedClues':revealed_stage(state),
         'portalCount':clue_count(state),'attempts':[{'name':a['name'],'kind':a['kind'],'correct':a['correct']} for a in state['attempts']]}
     if state['status']!='playing':result.update(answer=state['puzzle']['map']['name'],share=share_text(state))
     return result
