@@ -24,5 +24,10 @@ The admin-only /portle reset command resets one member's current daily progress,
 retains a private audit/previous state and invalidates old board IDs. Preserve
 earlier daily history, practice rounds and replay protection when changing this.
 
+Multi-server use registers commands globally with DISCORD_GUILD_ID blank. Commands
+support Guild Install/server channels only. One shared puzzle/library and per-user
+daily progress serve all servers; leaderboards filter server participants. Preserve
+server command permission overrides when touching legacy development registrations.
+
 Commit milestones and keep handoff documentation current. At most four CPUs.
 Do not publish the game or proprietary assets as part of local development.

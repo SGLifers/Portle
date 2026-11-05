@@ -58,6 +58,48 @@ same midnight reset; an IANA value such as `America/Los_Angeles` also works.
 command changes may take time to appear. The machine must remain awake and online.
 Ctrl+C stops the bot safely; restarting resumes daily progress from SQLite.
 
+## Multiple servers
+
+Use one running bot and the same Discord application across all servers:
+
+1. In the local `.env`, set `DISCORD_GUILD_ID=`. A nonempty value intentionally
+   registers commands only in that one development server. Exported environment
+   variables override `.env`; clear any exported guild restriction as well.
+2. In the Developer Portal, enable **Guild Install** and **Public Bot** if other
+   administrators will install the app. Under Guild Install's default settings,
+   request both `bot` and `applications.commands`, plus View Channels, Send
+   Messages, Embed Links and Attach Files (permission value52224). A commands-only
+   install does not add the bot member needed for automatic result posts.
+3. Share a server-install link using this application's ID, with no fixed server:
+
+   ```text
+   https://discord.com/oauth2/authorize?client_id=APPLICATION_ID&scope=bot+applications.commands&permissions=52224&integration_type=0
+   ```
+
+4. Each administrator opens the link, selects their own server and authorizes the
+   installation. Keep the bot online. Global commands work in installed servers;
+   the game command group is explicitly unavailable in DMs/user-only installs.
+5. Use `.venv/bin/python -m portle doctor` to verify `commandScope` is
+   `global: all installed servers`. Restart with `./run.sh` after config/code
+   changes; startup syncs globally in this mode. Command updates may need a client
+   refresh before appearing.
+
+Each server configures command permissions in Server Settings → Integrations →
+Portle. Bot channel permissions still govern public result delivery. Portle's
+public/private component buttons do not yet enforce a separate channel allowlist.
+
+All servers share the daily puzzle, configured reset timezone and per-player
+progress/statistics. A player can resume the same daily in another server.
+Leaderboards include only players who joined gameplay in the current server.
+Admin reset affects the selected member's shared daily across servers. Keep the
+bot token, SQLite files and local authoring editor private; inviting another
+server requires none of those files or credentials.
+
+During migration, an old guild-specific `/portle` copy can shadow global updates
+in the development server. Preserve any explicit command permission overrides
+when migrating/removing that copy; application-level restrictions remain managed
+under Integrations. Other app commands must not be bulk-deleted as cleanup.
+
 ## 3. Verify in a server
 
 1. Run `/portle help` and `/portle maps`.
@@ -104,7 +146,7 @@ board controls are invalidated. Reset confirmation stays private and does not
 ping the member. Previously posted results remain visible. Because daily progress
 is shared across this bot's servers, the reset applies to that member's current
 daily everywhere. The private database keeps an audit and previous state. This
-command requires the player's Administrator permission, not elevated bot access.
+command requires the invoking member's Administrator permission, not elevated bot access.
 
 Automatic result delivery is reserved in SQLite before sending to prevent duplicate
 posts from concurrent/replayed interactions or restarts. A failed or uncertain send

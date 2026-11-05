@@ -53,6 +53,20 @@ and configure a token in a local `.env`, then run:
 The bot implementation is tested offline. A live Discord connection still requires
 your configured application and bot token; never paste the token into chat.
 
+Portle supports installation in multiple Discord servers with one running bot,
+token and clue library. Leave `DISCORD_GUILD_ID` blank for global command
+registration; a populated value is only for single-server development. The
+offline doctor reports which mode is configured. Each server administrator adds
+the same application using Guild Install with `bot` + `applications.commands`.
+The application must have Public Bot enabled for other administrators to install
+it. See [multi-server setup](docs/DISCORD_SETUP.md#multiple-servers).
+
+The daily puzzle and each player's daily progress/stats are shared across servers.
+Leaderboards list only players who have used Portle in that server. Server admins
+control their server's command permissions, while practice/reset keep their
+runtime Administrator checks. The screenshot editor remains local to the owner;
+server administrators do not need the bot token or access to the editor.
+
 | Command | Behavior |
 | --- | --- |
 | `/portle play` | Open or resume the private daily |

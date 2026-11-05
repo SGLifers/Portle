@@ -9,7 +9,7 @@ from urllib.parse import parse_qs,urlparse
 from PIL import Image
 import discord
 from discord import app_commands
-from portle.bot import DiscordSetupError,MapGuessSelect,PlayPortleView,PortleClient,RoundView,post_daily_result,result_post_error,show_round
+from portle.bot import DiscordSetupError,MapGuessSelect,PlayPortleView,PortleClient,RoundView,post_daily_result,result_post_error,server_install_url,show_round
 from portle.catalog import Catalog
 from portle.store import GameStore
 from portle.clues import ClueLibrary
@@ -37,6 +37,7 @@ class DiscordTests(unittest.IsolatedAsyncioTestCase):
         reset=next(c for c in schema['options'] if c['name']=='reset')
         self.assertEqual(reset['options'][0]['name'],'player');self.assertEqual(reset['options'][0]['type'],6)
         self.assertTrue(reset['options'][0]['required'])
+        self.assertEqual(schema['integration_types'],[0]);self.assertEqual(schema['contexts'],[0])
         self.assertFalse(client.intents.message_content);self.assertFalse(client.intents.members)
         self.assertNotIn('token',str(schema).lower());await client.close()
     async def test_practice_command_rejects_members_and_moderators_privately(self):
@@ -128,6 +129,7 @@ class DiscordTests(unittest.IsolatedAsyncioTestCase):
                 query=parse_qs(urlparse(link).query)
                 self.assertEqual(query['client_id'],['12345']);self.assertEqual(query['permissions'],['52224'])
                 self.assertEqual(query['scope'],['bot applications.commands']);self.assertNotIn('guild_id',query)
+                self.assertEqual(query['integration_type'],['0'])
                 await client.close()
     async def test_successful_guild_sync_and_unrelated_failure_keep_their_behavior(self):
         client=PortleClient(self.store,guild_id=987)
@@ -138,6 +140,39 @@ class DiscordTests(unittest.IsolatedAsyncioTestCase):
             with self.assertRaises(discord.HTTPException) as caught:await client.setup_hook()
             self.assertIs(caught.exception,error)
         await client.close()
+    async def test_global_registration_syncs_once_for_all_installed_servers(self):
+        client=PortleClient(self.store)
+        with patch.object(client.tree,'sync',AsyncMock(return_value=[])) as sync,patch.object(client.tree,'copy_global_to') as copy:
+            await client.setup_hook();sync.assert_awaited_once_with();copy.assert_not_called()
+        self.assertEqual(len(client.persistent_views),1);await client.close()
+    async def test_server_install_url_is_reusable_and_requests_minimal_bot_permissions(self):
+        query=parse_qs(urlparse(server_install_url(12345)).query)
+        self.assertEqual(query['client_id'],['12345']);self.assertEqual(query['scope'],['bot applications.commands'])
+        self.assertEqual(query['permissions'],['52224']);self.assertEqual(query['integration_type'],['0'])
+        self.assertNotIn('guild_id',query);self.assertNotIn('disable_guild_select',query)
+    async def test_doctor_reports_global_or_development_scope_without_network_or_ids(self):
+        from contextlib import redirect_stdout
+        import json
+        from io import StringIO
+        from portle.__main__ import main
+        for guild,expected in [('', 'global: all installed servers'),('987','single development server')]:
+            output=StringIO();env={'PORTLE_CLUE_SOURCE':'manual','PORTLE_CLUES':str(Path(self.temp.name)/'doctor-clues'),'DISCORD_GUILD_ID':guild}
+            with patch.dict('os.environ',env,clear=True),patch('sys.argv',['portle','doctor']),patch('portle.__main__.load_dotenv'),patch('portle.store.GameStore',return_value=self.store),redirect_stdout(output):
+                self.assertEqual(main(),0)
+            result=json.loads(output.getvalue());self.assertEqual(result['commandScope'],expected)
+            self.assertFalse(result['networkConnectionAttempted']);self.assertTrue(result['serverInstallOnly'])
+            self.assertNotIn('987',output.getvalue())
+    async def test_daily_can_be_opened_from_two_servers_with_independent_players(self):
+        view=PlayPortleView(self.store)
+        first=interaction('81');first.guild_id=501;second=interaction('82');second.guild_id=502
+        await view.play_button.callback(first);await view.play_button.callback(second)
+        first_state=self.store.get(first.edit_original_response.call_args.kwargs['view'].round_id,'81')
+        second_state=self.store.get(second.edit_original_response.call_args.kwargs['view'].round_id,'82')
+        self.assertEqual(first_state['puzzle'],second_state['puzzle']);self.assertNotEqual(first_state['id'],second_state['id'])
+        first_state=self.store.act(first_state['id'],'81',0,guess=first_state['puzzle']['map']['name'])
+        self.assertEqual([r['user_id'] for r in self.store.leaderboard(501)],['81'])
+        self.assertEqual(self.store.leaderboard(502),[])
+        self.assertEqual(self.store.get(second_state['id'],'82')['version'],0)
     async def test_public_play_button_is_registered_again_after_restart(self):
         for _ in range(2):
             client=PortleClient(self.store,guild_id=987)

@@ -43,17 +43,17 @@ def main():
         for _ in range(args.stage-1):apply_action(state,skip=True)
         path=ROOT/'.local/sample.png';path.parent.mkdir(exist_ok=True);path.write_bytes(store.image(state,args.view));print(path);return 0
     from .bot import PortleClient,DiscordSetupError
+    guild=os.getenv('DISCORD_GUILD_ID','').strip()
+    if guild and (not guild.isdigit() or int(guild)<=0):parser.exit(2,'DISCORD_GUILD_ID must be a positive server ID.\n')
+    client=PortleClient(store,int(guild) if guild else None)
     if args.command=='doctor':
-        client=PortleClient(store)
         print(json.dumps({'maps':len(catalog.maps),'portals':sum(len(m.get('portals',[])) for m in catalog.maps),'clueSource':source,'publishedClueSets':len(clues.published()) if clues else None,'timezone':timezone_name,
+            'commandScope':'single development server' if guild else 'global: all installed servers','serverInstallOnly':True,
             'discordSdk':__import__('discord').__version__,'commands':client.tree.get_commands()[0].to_dict(client.tree),
             'tokenConfigured':bool(os.getenv('DISCORD_BOT_TOKEN')),'networkConnectionAttempted':False},indent=2))
         return 0
     token=os.getenv('DISCORD_BOT_TOKEN','').strip()
     if not token or token.startswith('replace_'):parser.exit(2,'DISCORD_BOT_TOKEN is not configured. Copy .env.example to .env and add your bot token locally; do not paste it into chat. See docs/DISCORD_SETUP.md.\n')
-    guild=os.getenv('DISCORD_GUILD_ID','').strip()
-    if guild and (not guild.isdigit() or int(guild)<=0):parser.exit(2,'DISCORD_GUILD_ID must be a positive server ID.\n')
-    client=PortleClient(store,int(guild) if guild else None)
     import discord
     try:client.run(token)
     except discord.LoginFailure:parser.exit(2,'Discord rejected the configured bot token. Update .env locally.\n')

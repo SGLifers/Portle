@@ -21,6 +21,11 @@ async def report_error(interaction,message):
     else:await interaction.response.send_message(message,ephemeral=True,allowed_mentions=discord.AllowedMentions.none())
 
 
+def server_install_url(application_id):
+    permissions=discord.Permissions(view_channel=True,send_messages=True,embed_links=True,attach_files=True)
+    return discord.utils.oauth_url(application_id,permissions=permissions)+'&integration_type=0'
+
+
 def round_embed(state,projection,clue_index=None):
     data=public_view(state);active=data['status']=='playing'
     title='Which arena is this?' if active else ('Arena identified!' if data['status']=='won' else 'The arena was '+data['answer'])
@@ -195,7 +200,9 @@ class RoundView(discord.ui.View):
 
 class PortleCommands(app_commands.Group):
     def __init__(self,store):
-        super().__init__(name='portle',description='Guess the arena from its portal placements',guild_only=True)
+        super().__init__(name='portle',description='Guess the arena from its portal placements',guild_only=True,
+            allowed_installs=app_commands.AppInstallationType(guild=True,user=False),
+            allowed_contexts=app_commands.AppCommandContext(guild=True,dm_channel=False,private_channel=False))
         self.store=store
 
     @app_commands.command(description='Play or resume your private daily map puzzle')
@@ -297,11 +304,10 @@ class PortleClient(discord.Client):
                 message+='Install this same application with Add to server (Guild Install), using both bot and applications.commands scopes. Installing only to your user account is insufficient.\n'
             else:message+='Check this application\'s installation/command settings in the Discord Developer Portal.\n'
             if self.application_id:
-                permissions=discord.Permissions(view_channel=True,send_messages=True,embed_links=True,attach_files=True)
-                message+='Server installation link: '+discord.utils.oauth_url(self.application_id,permissions=permissions)+'\n'
+                message+='Server installation link: '+server_install_url(self.application_id)+'\n'
             message+='After correcting access, run ./run.sh again. See docs/DISCORD_SETUP.md.'
             raise DiscordSetupError(message) from None
         self.add_view(PlayPortleView(self.store))
-        logging.getLogger(__name__).info('Registered %d command groups',len(commands))
+        logging.getLogger(__name__).info('Registered %d command groups (%s)',len(commands),'single development server' if self.guild_id else 'global: all installed servers')
 
     async def on_ready(self):logging.getLogger(__name__).info('Portle connected and ready')

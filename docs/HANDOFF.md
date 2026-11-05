@@ -609,3 +609,63 @@ Atlas tab5 at /#map=MAP_Terra13; renderer and Screenshot control are ready.
 Both browser tabs marked deliverable and both servers left running. Old error
 tabs and Discord authorization page left alone; user-managed bot untouched.
 No application code changed or tests required; HTTP/UI checks verified readiness.
+
+## Multi-server installation — 2026-11-04
+
+User requested making Portle installable on multiple servers. Existing transport
+already supports global registration when DISCORD_GUILD_ID is blank; current
+local configuration still selected one development server. Set that one local
+.env key to blank with dotenv.set_key, preserving other settings/credentials.
+No exported guild/token override exists in the tool environment. Optional scope
+question received no reply during work; retained and stated current shared
+per-player progress across servers, rather than changing the database model.
+
+Code now explicitly declares Guild Install only and guild interaction context
+only on the root group. Added reusable server_install_url(application_id) with
+bot + applications.commands, permissions52224 and integration_type=0, without
+pinning a guild. Startup diagnostics use it, and logs identify global vs single
+development scope. Offline doctor now uses the actual configured guild choice
+and reports commandScope/serverInstallOnly without exposing IDs or networking.
+No new slash commands; eight remain. README/setup/env example describe multi-
+server operation, shared progress, server participant leaderboards, admin reset
+scope, owner-only local editor and existing component channel-allowlist limitation.
+
+Live application checks/authorized configuration used the known local credential
+only in memory. Public Bot was already true, code-grant requirement false, Guild
+and User Install configured, but default install_params requested only commands.
+Updated /applications/@me install_params and Guild Install oauth2_install_params
+to bot + applications.commands /52224. Preserved User Install configuration and
+all other app settings. Read-back GET returned200 and verified these fields.
+Backup of only installation settings is ignored
+.local/install-settings-before-multiserver.json, mode0600; no credentials copied.
+
+Registered the current /portle root globally using POST to the specific named
+application command (not bulk overwrite), preserving other global commands.
+Read-back verified eight subcommands, integration_types[0], contexts[0]. Previous
+global Portle definition is backed up in ignored
+.local/global-portle-before-multiserver.json, mode0600. No clue assets or screenshot
+content were included in registration. This running bot already has a global
+in-memory root definition/fallback, so new guild interactions can dispatch;
+restart remains recommended to load current source and persist global startup.
+
+Bot now reports1 server membership. Checked its legacy guild root: permission
+lookup was unavailable using bot auth, so no command was deleted or permission
+changed. A follow-up metadata-only check verified the legacy guild's eight
+subcommands already exactly match the global definition; no update was needed.
+Thus existing command-level overrides remain intact. An old guild copy remains
+and can shadow future global definition changes in that development server;
+future migration must preserve its overrides rather than blindly deleting it.
+Other guild/global commands were untouched. Numeric IDs/installation URLs remain
+outside Git. No server roles, channel permissions, scores, bot process, Atlas,
+clue content or channel messages were changed/sent by this task.
+
+Validation: full Python suite passed96 tests in8.619s; git diff --check passed.
+Four new tests cover one global sync (no per-guild copy), canonical unrestricted
+server-install URLs/minimal permissions, offline doctor scopes/ID privacy, and
+independent players across two guilds with shared puzzle and participant-filtered
+leaderboards. Schema tests verify server-only installs/contexts. Official Discord
+application/command and installed SDK documentation checked. Actual installation
+into a second server remains for an administrator with Manage Server to authorize.
+Use the existing application install link; keep one bot process/token/library.
+Restart via Ctrl+C / ./run.sh to load current source/config; doctor should report
+global: all installed servers. Every joining server gets the global /portle group.
