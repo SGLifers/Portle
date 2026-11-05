@@ -565,3 +565,31 @@ Discord messages, permission edits, bot restart or credential reads were perform
 User-managed bot and Atlas remain untouched. Activate by Ctrl+C / `./run.sh` so
 startup resyncs the command group and creates the audit table in the chosen DB.
 Then use `/portle reset player:@member`; the member reopens their daily board.
+
+## Remove manual Discord sharing and clue footer — 2026-11-04
+
+User requested removing the Share result button, /portle share command and
+"Manually supplied screenshot · /portle maps for valid answers" footer. Removed
+the board button/callback, slash subcommand and embed footer (manual/generated).
+Eight subcommands remain, including admin reset. Automatic daily result posts
+with persistent Play Portle stay unchanged; practice results now stay private
+with no manual public-sharing path. The browser's Copy spoiler-free result
+utility and score serialization remain, since they are used for local copying,
+private finished-board score text and automatic result messages.
+
+Removed references to the old sharing controls from help, active documentation,
+error feedback and the store comment. Error messages now direct players to check
+the channel and ask an admin to review access. Earlier manual retry instructions
+in historical handoff sections are obsolete. Failed/uncertain posts retain the
+existing no-automatic-retry policy; reopening a completed round does not repost.
+No replacement manual repost command or button was added.
+
+Validation: full Python suite passed92 tests in8.445s; git diff --check passed.
+Updated existing checks assert no share command/button on active/finished boards,
+no footer on manual/generated embeds, no dead share instructions in error text,
+and continued automatic daily result posts/persistent Play buttons. README,
+Discord setup guide and AGENTS reflect the new behavior. No live Discord
+messages, command-sync calls, credentials, DB changes or bot/Atlas restarts.
+Activate with Ctrl+C / `./run.sh` to resync commands, then open a fresh board
+using Play Portle or /portle play. Old ephemeral boards are not retroactively
+edited and their controls expire after restart.

@@ -119,7 +119,7 @@ class GameStore:
             return db.execute('INSERT OR IGNORE INTO result_posts VALUES (?,?,NULL)',(round_id,'pending')).rowcount==1
 
     def record_result_post(self,round_id,message_id=None):
-        # Keep failed/uncertain attempts reserved: retry explicitly with /portle share.
+        # Keep failed/uncertain attempts reserved to avoid duplicate public posts.
         with self.transaction() as db:
             db.execute('UPDATE result_posts SET status=?,message_id=? WHERE round_id=? AND status=?',
                 ('sent' if message_id is not None else 'failed',str(message_id) if message_id is not None else None,round_id,'pending'))

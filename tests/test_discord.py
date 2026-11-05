@@ -32,7 +32,8 @@ class DiscordTests(unittest.IsolatedAsyncioTestCase):
     async def asyncTearDown(self):self.temp.cleanup()
     async def test_command_schema_and_no_privileged_intents(self):
         client=PortleClient(self.store);schema=client.tree.get_commands()[0].to_dict(client.tree)
-        self.assertEqual(schema['name'],'portle');self.assertEqual(len(schema['options']),9)
+        self.assertEqual(schema['name'],'portle');self.assertEqual(len(schema['options']),8)
+        self.assertNotIn('share',[c['name'] for c in schema['options']])
         reset=next(c for c in schema['options'] if c['name']=='reset')
         self.assertEqual(reset['options'][0]['name'],'player');self.assertEqual(reset['options'][0]['type'],6)
         self.assertTrue(reset['options'][0]['required'])
@@ -192,23 +193,22 @@ class DiscordTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(kwargs['view'].is_persistent());self.assertEqual(kwargs['view'].play_button.label,'Play Portle')
         replay=interaction();await view.skip_button.callback(replay);replay.channel.send.assert_not_awaited()
         await show_round(replay,self.store,self.store.get(state['id'],'11'));replay.channel.send.assert_not_awaited()
-    async def test_slash_guess_posts_once_and_explicit_shares_have_play_buttons(self):
+    async def test_slash_guess_posts_once_with_public_play_button(self):
         client=PortleClient(self.store);group=client.tree.get_command('portle');event=interaction()
         await group.guess.callback(group,event,self.state['puzzle']['map']['name'])
         event.channel.send.assert_awaited_once();self.assertIn('1/6',event.channel.send.call_args.args[0])
-        event=interaction();await group.share.callback(group,event)
-        self.assertTrue(event.response.send_message.call_args.kwargs['view'].is_persistent())
-        self.assertFalse(event.response.send_message.call_args.kwargs.get('ephemeral',False))
-        self.assertNotIn(self.state['puzzle']['map']['name'],event.response.send_message.call_args.args[0])
+        self.assertTrue(event.channel.send.call_args.kwargs['view'].is_persistent())
+        self.assertNotIn(self.state['puzzle']['map']['name'],event.channel.send.call_args.args[0])
         await client.close()
-    async def test_automatic_post_failure_preserves_result_and_gives_private_manual_retry(self):
+    async def test_automatic_post_failure_preserves_result_and_gives_private_admin_guidance(self):
         error=discord.Forbidden(SimpleNamespace(status=403,reason='Forbidden'),{'code':50013,'message':'private raw detail'})
         for index,failure in enumerate([error,OSError('private raw detail')]):
             user=str(50+index);state=self.store.start(user)
             state=self.store.act(state['id'],user,0,guess=state['puzzle']['map']['name'])
             event=interaction(user);await event.response.defer(ephemeral=True);event.channel.send.side_effect=failure
             with self.assertLogs('portle.bot',level='WARNING') as logs:await post_daily_result(event,self.store,state)
-            text=event.followup.send.call_args.args[0];self.assertIn('/portle share',text)
+            text=event.followup.send.call_args.args[0];self.assertIn('server administrator',text)
+            self.assertNotIn('/portle share',text);self.assertNotIn('Share result',text)
             self.assertNotIn('private raw detail',text);self.assertNotIn('private raw detail',' '.join(logs.output))
             self.assertTrue(event.followup.send.call_args.kwargs['ephemeral'])
             restarted=GameStore(self.store.path,self.store.catalog)
@@ -220,7 +220,7 @@ class DiscordTests(unittest.IsolatedAsyncioTestCase):
             text=result_post_error(error)
             self.assertIn(f'HTTP {status}',text);self.assertIn(f'Discord code {code}',text)
             self.assertIn(expected,text);self.assertNotIn('private raw detail',text)
-            self.assertIn('/portle share',text)
+            self.assertNotIn('/portle share',text);self.assertNotIn('Share result',text)
         self.assertIn('network error',result_post_error(OSError('private raw detail')))
     async def test_completed_score_posts_even_if_private_clue_rendering_fails(self):
         from portle.game import GameError
@@ -244,7 +244,8 @@ class DiscordTests(unittest.IsolatedAsyncioTestCase):
         attachment=kwargs['attachments'][0];self.assertEqual(attachment.filename,'portle-clue.png')
         Image.open(attachment.fp).verify()
         self.assertNotIn(self.state['puzzle']['map']['name'],kwargs['embed'].description)
-        self.assertTrue(kwargs['view'].share_button.disabled)
+        self.assertNotIn('footer',kwargs['embed'].to_dict())
+        self.assertNotIn('Share result',[getattr(c,'label',None) for c in kwargs['view'].children])
     async def test_foreign_player_rejected(self):
         view=RoundView(self.store,self.state);event=interaction('99')
         self.assertFalse(await view.interaction_check(event));self.assertTrue(event.response.send_message.call_args.kwargs['ephemeral'])
@@ -355,12 +356,10 @@ class DiscordTests(unittest.IsolatedAsyncioTestCase):
         view=RoundView(self.store,self.state);event=interaction();await view.projection_button.callback(event)
         self.assertEqual(self.store.get(self.state['id'],'11')['version'],0)
         self.assertEqual(event.edit_original_response.call_args.kwargs['view'].projection,'top')
-    async def test_finished_board_disables_guess_and_enables_share(self):
+    async def test_finished_board_disables_guesses_and_has_no_share_button(self):
         state=self.store.act(self.state['id'],'11',0,guess=self.state['puzzle']['map']['name']);view=RoundView(self.store,state)
-        self.assertTrue(view.map_select.disabled);self.assertTrue(view.skip_button.disabled);self.assertFalse(view.share_button.disabled)
-        event=interaction();await view.share_button.callback(event)
-        text=event.response.send_message.call_args.args[0];self.assertNotIn(state['puzzle']['map']['name'],text)
-        self.assertFalse(event.response.send_message.call_args.kwargs.get('ephemeral',False))
+        self.assertTrue(view.map_select.disabled);self.assertTrue(view.skip_button.disabled)
+        self.assertNotIn('Share result',[getattr(c,'label',None) for c in view.children])
     async def test_manual_board_uses_authored_bytes_and_review_controls(self):
         library=ClueLibrary(Path(self.temp.name)/'clues')
         for i in range(1,7):
@@ -372,6 +371,7 @@ class DiscordTests(unittest.IsolatedAsyncioTestCase):
         view=kwargs['view'];self.assertNotIn(view.projection_button,view.children);self.assertTrue(view.earlier_button.disabled)
         self.assertEqual([o.value for o in view.map_select.options],manual.catalog.choices())
         self.assertNotIn(state['puzzle']['map']['name'],kwargs['embed'].description)
+        self.assertNotIn('footer',kwargs['embed'].to_dict())
         state=manual.act(state['id'],'11',0,skip=True);view=RoundView(manual,state);event=interaction()
         await view.earlier_button.callback(event)
         self.assertEqual(manual.get(state['id'],'11')['version'],1)

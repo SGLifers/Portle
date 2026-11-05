@@ -69,8 +69,8 @@ Ctrl+C stops the bot safely; restarting resumes daily progress from SQLite.
    Finish it using guesses or skips;
    check that the answer appears and all six screenshots can be viewed at the end.
 5. Finish a daily round. Confirm one public score post with colored squares and
-   **Play Portle**, with no arena name, guesses or clue image. Practice does not
-   auto-post; admins can explicitly use **Share result** for practice scores.
+   **Play Portle**, with no arena name, guesses or clue image. Practice results
+   stay private.
 6. Have another member click **Play Portle**. It must open that member's own
    private daily board without changing the public post or anyone else's round.
 7. Restart the bot. The public Play button should still work; clicking a result
@@ -79,8 +79,8 @@ Ctrl+C stops the bot safely; restarting resumes daily progress from SQLite.
 
 Clues, guesses and normal game feedback remain private. A finished daily
 automatically posts the player's spoiler-free score in its finishing channel.
-The explicit Share button and `/portle share` post another public score, also
-with Play Portle. Player attribution does not send a mention notification.
+Each automatic post includes Play Portle. Player attribution does not send a
+mention notification. There is no manual Discord share button or command.
 Guessing with `/portle guess` always targets the
 daily round; use the board's dropdown for practice guesses. The dropdown lists
 unguessed names alphabetically, including maps without published clues. Guessed
@@ -91,7 +91,7 @@ appear when more than 25 unguessed names remain.
 Practice requires the invoking player's **Administrator** server permission.
 Members without it receive a private explanation directing them to `/portle play`.
 The bot rechecks this permission on existing practice board controls, including
-clue review and sharing. Daily play remains available to ordinary members. This
+clue review. Daily play remains available to ordinary members. This
 restriction does not require granting the bot Administrator. Discord may still
 show the practice subcommand to members; the bot enforces permission before
 creating a round. The local browser playtest has no Discord roles.
@@ -109,7 +109,8 @@ command requires the player's Administrator permission, not elevated bot access.
 Automatic result delivery is reserved in SQLite before sending to prevent duplicate
 posts from concurrent/replayed interactions or restarts. A failed or uncertain send
 is not retried automatically. The private board and scores remain saved; check
-whether the result appeared before using Share result or `/portle share` to retry.
+whether the result appeared and ask a server administrator to review bot access
+if it is missing. Completed rounds are not manually reposted.
 Check **View Channels** and **Send Messages** in the finishing channel if posting
 fails; threads also require **Send Messages in Threads**. No extra privileged
 intents are required. Old completed rounds are not automatically announced on
@@ -119,8 +120,8 @@ If private interactions work but automatic posts fail with **Forbidden**, confir
 the bot account itself appears in the server's member list. An installed app or
 registered command does not establish bot membership. Install the same application
 using **Add to server / Guild Install** with both `bot` and
-`applications.commands` scopes. Then use `/portle share` on the saved result;
-failed automatic posts stay reserved to prevent duplicate sends. New diagnostics
+`applications.commands` scopes. Failed automatic posts stay reserved to prevent
+duplicate sends; new completed daily games will use the restored access. Diagnostics
 include HTTP status and Discord code:50001 points to missing access/membership,
 while50013 points to action permissions. Raw HTTP bodies and credentials are
 omitted from both private feedback and logs.

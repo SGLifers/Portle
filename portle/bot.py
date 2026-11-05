@@ -34,7 +34,6 @@ def round_embed(state,projection,clue_index=None):
         history='\n'.join(f"{i+1}. "+('🟩 ' if a['correct'] else '⬜ ' if a['kind']=='skip' else '🟥 ')+(a['name'] or 'Skipped') for i,a in enumerate(data['attempts']))
         embed.add_field(name='Your guesses',value=history,inline=False)
     embed.set_image(url='attachment://portle-clue.png')
-    embed.set_footer(text=('Manually supplied screenshot' if manual else f"{'Top' if projection=='top' else 'Isometric'} view · real asset placements")+' · /portle maps for valid answers')
     return embed
 
 
@@ -50,12 +49,12 @@ def result_post_error(error):
         elif error.code==50013 or isinstance(error,discord.Forbidden):
             reason+='Allow the Portle bot View Channel and Send Messages in this channel; threads also need Send Messages in Threads. Check channel/category permission overrides. '
         elif error.code==50083:
-            reason+='The thread is archived; unarchive it or share in an active channel. '
+            reason+='The thread is archived; a server administrator can unarchive it. '
         elif error.code==10003:
-            reason+='The channel is unavailable; share in an accessible server channel. '
+            reason+='The channel is unavailable; a server administrator can review its access. '
     elif isinstance(error,GameError):reason='No accessible server channel was available for the result post. '
     else:reason='A network error prevented confirming the result post. '
-    return 'Your result is saved. '+reason+'Check whether it appeared, then use Share result or /portle share to retry if needed.'
+    return 'Your result is saved. '+reason+'Check this channel for the result and ask a server administrator to review the bot\'s access if it is missing.'
 
 
 async def post_daily_result(interaction,store,state):
@@ -132,7 +131,7 @@ class RoundView(discord.ui.View):
             self.previous_maps.disabled=finished or self.map_page==0
             self.next_maps.disabled=finished or self.map_page>=self.map_pages-1
             self.map_select.placeholder=f'Choose a map to guess · page {self.map_page+1}/{self.map_pages}'
-        self.skip_button.disabled=finished;self.share_button.disabled=not finished
+        self.skip_button.disabled=finished
         self.projection_button.label='Top view' if projection=='iso' else 'Isometric view'
         self.clue_index=clue_index or revealed_stage(state)
         if state['puzzle'].get('clueSource')=='manual':
@@ -188,13 +187,6 @@ class RoundView(discord.ui.View):
         await interaction.response.defer(ephemeral=True,thinking=False)
         state=await asyncio.to_thread(self.store.get,self.round_id,interaction.user.id)
         await show_round(interaction,self.store,state,replace=True,clue_index=min(revealed_stage(state),self.clue_index+1))
-
-    @discord.ui.button(label='Share result',style=discord.ButtonStyle.primary,row=2)
-    async def share_button(self,interaction,button):
-        state=await asyncio.to_thread(self.store.get,self.round_id,interaction.user.id)
-        try:result=result_message(state)
-        except GameError as exc:return await report_error(interaction,str(exc))
-        await interaction.response.send_message(result,view=PlayPortleView(self.store),allowed_mentions=discord.AllowedMentions.none())
 
     async def on_error(self,interaction,error,item):
         logging.getLogger(__name__).error('Board action failed: %s',type(error).__name__)
@@ -258,13 +250,6 @@ class PortleCommands(app_commands.Group):
         text='\n'.join(f"**{i+1}.** <@{r['user_id']}> · {r['wins']} wins · {r['currentStreak']} streak" for i,r in enumerate(rows)) or 'No finished daily rounds yet. Play with /portle play.'
         await interaction.edit_original_response(embed=discord.Embed(title='Portle · server players',description=text,color=0x78E8D1),allowed_mentions=discord.AllowedMentions.none())
 
-    @app_commands.command(description='Share your finished daily score without revealing the map')
-    async def share(self,interaction:discord.Interaction):
-        state=await asyncio.to_thread(self.store.start,interaction.user.id,guild_id=interaction.guild_id)
-        try:result=result_message(state)
-        except GameError as exc:return await report_error(interaction,str(exc))
-        await interaction.response.send_message(result,view=PlayPortleView(self.store),allowed_mentions=discord.AllowedMentions.none())
-
     @app_commands.command(description='List all map names accepted by the game')
     async def maps(self,interaction:discord.Interaction):
         await interaction.response.send_message('**Available arenas**\n'+', '.join(self.store.catalog.choices()),ephemeral=True)
@@ -279,7 +264,7 @@ class PortleCommands(app_commands.Group):
             f'Daily resets at midnight **{self.store.zone.key}**; everyone gets the same map with private progress.\n'
             '`/portle play` daily · `/portle practice` admins only · `/portle guess` guess daily · `/portle maps` answer list · `/portle stats` records.\n'
             'Admins: `/portle reset player` resets that member\'s current daily score and guesses. Earlier days and practice are preserved; daily progress is shared across servers.\n'
-            'Finishing a daily automatically posts your score and squares in this channel, without the map name or clues. Anyone can use **Play Portle** on a result to open their own private daily. **Share result** or `/portle share` can post a score again. Practice does not auto-post. Private board controls expire after 15 minutes; public Play buttons survive restarts. Resume the daily with `/portle play`. Server administrators can start fresh practice with `/portle practice`; practice does not affect daily records.',ephemeral=True)
+            'Finishing a daily automatically posts your score and squares in this channel, without the map name or clues. Anyone can use **Play Portle** on a result to open their own private daily. Practice results stay private. Private board controls expire after 15 minutes; public Play buttons survive restarts. Resume the daily with `/portle play`. Server administrators can start fresh practice with `/portle practice`; practice does not affect daily records.',ephemeral=True)
 
     async def on_error(self,interaction,error):
         original=getattr(error,'original',error)

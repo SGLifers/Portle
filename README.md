@@ -62,7 +62,6 @@ your configured application and bot token; never paste the token into chat.
 | `/portle maps` | List accepted answers |
 | `/portle stats` | Daily results and guess distribution |
 | `/portle leaderboard` | Overall daily records of this guild's participants |
-| `/portle share` | Post a finished daily score without its answer |
 | `/portle help` | Explain the rules |
 
 The board's alphabetical map dropdown works in daily and practice. Selecting a
@@ -74,7 +73,7 @@ accepted names remain available, including maps without published clues.
 Discord shows Previous/Next maps controls if more than 25 unguessed names remain;
 browsing these pages is free. The optional `/portle guess map_name` command
 still supports autocomplete. Earlier/Later clue buttons revisit unlocked
-screenshots. Share result also supports practice. Private board controls expire after
+screenshots. Private board controls expire after
 15 minutes or a bot restart; `/portle play` restores the daily, while practice
 requires starting a new round. No ordinary chat-message reading is needed.
 
@@ -101,15 +100,14 @@ pinging them and contains no answer, guesses or clue images. **Play Portle** on
 the post opens or resumes the clicking player's own private daily puzzle, without
 a slash command. This public button survives bot restarts and always opens
 today's puzzle, even on older posts. The bot must be running for buttons to work.
-Practice does not auto-post; admins can still explicitly share its score.
+Practice results stay private.
 
 Automatic posts are reserved in SQLite to prevent duplicates from replayed or
 concurrent interactions and restarts. Reopening completed boards does not post
-again or backfill older results. **Share result** and `/portle share` remain
-explicit ways to post again, with the same Play button. If a send fails or its
-outcome is uncertain, the bot preserves the game and gives private retry guidance;
-check the channel before manually sharing. Interrupted sends are not automatically
-retried, to avoid duplicate public messages.
+again or backfill older results. If a send fails or its outcome is uncertain, the
+bot preserves the game and gives private guidance to check the channel and the
+bot's access. Interrupted sends are not automatically retried, to avoid duplicate
+public messages. There is no manual Discord share button or command.
 
 ## Data and configuration
 
