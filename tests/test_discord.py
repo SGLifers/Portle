@@ -9,7 +9,7 @@ from urllib.parse import parse_qs,urlparse
 from PIL import Image
 import discord
 from discord import app_commands
-from portle.bot import DiscordSetupError,MapGuessSelect,PlayPortleView,PortleClient,RoundView,post_daily_result,show_round
+from portle.bot import DiscordSetupError,MapGuessSelect,PlayPortleView,PortleClient,RoundView,post_daily_result,result_post_error,show_round
 from portle.catalog import Catalog
 from portle.store import GameStore
 from portle.clues import ClueLibrary
@@ -177,6 +177,14 @@ class DiscordTests(unittest.IsolatedAsyncioTestCase):
             restarted=GameStore(self.store.path,self.store.catalog)
             self.assertEqual(restarted.get(state['id'],user)['status'],'won')
             retry=interaction(user);await post_daily_result(retry,restarted,state);retry.channel.send.assert_not_awaited()
+    async def test_result_post_errors_explain_permissions_access_and_network_without_raw_details(self):
+        for status,code,expected in [(403,50013,'Send Messages in Threads'),(403,50001,'View Channel'),(400,50083,'archived'),(404,10003,'channel is unavailable'),(400,50035,'Discord rejected')]:
+            error=discord.HTTPException(SimpleNamespace(status=status,reason='Error'),{'code':code,'message':'private raw detail'})
+            text=result_post_error(error)
+            self.assertIn(f'HTTP {status}',text);self.assertIn(f'Discord code {code}',text)
+            self.assertIn(expected,text);self.assertNotIn('private raw detail',text)
+            self.assertIn('/portle share',text)
+        self.assertIn('network error',result_post_error(OSError('private raw detail')))
     async def test_completed_score_posts_even_if_private_clue_rendering_fails(self):
         from portle.game import GameError
         state=self.store.act(self.state['id'],'11',0,guess=self.state['puzzle']['map']['name']);event=interaction()

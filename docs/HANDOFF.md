@@ -480,3 +480,41 @@ Another member should click it and see Only you can see this. Verify the button
 again after restarting the bot. It requires the bot online and normal channel
 send access; threads additionally need Send Messages in Threads. This does not
 require privileged intents or giving the bot Administrator.
+
+## Diagnose automatic post Forbidden — 2026-11-04
+
+User reported generic saved-result/post-not-confirmed message, then identified
+bot-test and terminal warning Automatic result post failed: Forbidden. Running
+bot is user-managed PID326743; stdout/stderr point to a separate /dev/pts/0,
+not a captured log or this chat's app terminal. No reads of terminal input or
+process credentials, signals, bot restarts or live messages were performed.
+
+Read-only Discord diagnosis used the explicitly configured local .env credential
+in memory, never printed. No inherited token/guild environment overrides exist
+in this tool environment. GET /users/@me returned200. GET configured guild's
+channels returned403 /50001 Missing Access. GET /users/@me/guilds returned200
+with0 servers, establishing that the configured bot account has no guild
+memberships. This explains rejection of bot-authenticated channel sends even
+though interactions work. No channel permission overrides were accessible, so do
+not claim to have inspected bot-test's overrides. GET /oauth2/applications/@me
+returned200 and application name Portle. Generated a user-facing installation
+URL for that exact app with bot + applications.commands and permissions52224;
+Discord identifiers and URL remain outside Git.
+
+User action: Guild Install / Add to server for the same Portle application,
+select the server containing bot-test, then run /portle share there for the saved
+result. Existing failed reservation is deliberately retained. No score/progress
+reset is needed. The running bot can receive guild membership updates; restart
+only to load the improved diagnostics below or if Discord does not update access.
+
+Code now includes safe result_post_error diagnostics with HTTP status/Discord
+code and targeted guidance for50001 missing access,50013 missing permissions,
+50083 archived thread,10003 unavailable channel and network/missing-context
+failures. Terminal warnings include numeric codes, never raw response/error
+contents. Added regression coverage for safe actionable feedback. The prior
+generic warning concealed these details; this diagnostics patch does not change
+the public send route, membership, server permissions or retry policy. Official
+Discord status-code and thread-permission sources consulted. Updated setup guide.
+Verification: full Python suite passed81 tests in8.380s; git diff --check passed.
+User must complete the server installation; the agent has not changed external
+permissions or verified a successful public post after installation.

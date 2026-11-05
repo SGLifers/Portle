@@ -105,6 +105,16 @@ fails; threads also require **Send Messages in Threads**. No extra privileged
 intents are required. Old completed rounds are not automatically announced on
 startup, and Play buttons require the bot to be online.
 
+If private interactions work but automatic posts fail with **Forbidden**, confirm
+the bot account itself appears in the server's member list. An installed app or
+registered command does not establish bot membership. Install the same application
+using **Add to server / Guild Install** with both `bot` and
+`applications.commands` scopes. Then use `/portle share` on the saved result;
+failed automatic posts stay reserved to prevent duplicate sends. New diagnostics
+include HTTP status and Discord code:50001 points to missing access/membership,
+while50013 points to action permissions. Raw HTTP bodies and credentials are
+omitted from both private feedback and logs.
+
 ## Keep it running
 
 Running `./run.sh` in a persistent terminal is sufficient for local use. For a

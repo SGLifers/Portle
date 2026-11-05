@@ -42,6 +42,22 @@ def result_message(state):
     return f"<@{state['user_id']}>\n"+share_text(state)
 
 
+def result_post_error(error):
+    if isinstance(error,discord.HTTPException):
+        reason=f'Discord rejected the result post (HTTP {error.status}, Discord code {error.code}). '
+        if error.code==50001:
+            reason+='Check that this same bot is installed in this server and has View Channel access to this channel, including private-thread membership. '
+        elif error.code==50013 or isinstance(error,discord.Forbidden):
+            reason+='Allow the Portle bot View Channel and Send Messages in this channel; threads also need Send Messages in Threads. Check channel/category permission overrides. '
+        elif error.code==50083:
+            reason+='The thread is archived; unarchive it or share in an active channel. '
+        elif error.code==10003:
+            reason+='The channel is unavailable; share in an accessible server channel. '
+    elif isinstance(error,GameError):reason='No accessible server channel was available for the result post. '
+    else:reason='A network error prevented confirming the result post. '
+    return 'Your result is saved. '+reason+'Check whether it appeared, then use Share result or /portle share to retry if needed.'
+
+
 async def post_daily_result(interaction,store,state):
     if state['mode']!='daily' or state['status']=='playing':return
     if not await asyncio.to_thread(store.claim_result_post,state['id'],interaction.user.id):return
@@ -50,8 +66,8 @@ async def post_daily_result(interaction,store,state):
         message=await interaction.channel.send(result_message(state),view=PlayPortleView(store),allowed_mentions=discord.AllowedMentions.none())
     except (discord.HTTPException,OSError,GameError) as error:
         await asyncio.to_thread(store.record_result_post,state['id'])
-        logging.getLogger(__name__).warning('Automatic result post failed: %s',type(error).__name__)
-        return await report_error(interaction,'Your result is saved, but the public result post could not be confirmed. Check whether it appeared, then use Share result or /portle share to retry if needed.')
+        logging.getLogger(__name__).warning('Automatic result post failed: %s (HTTP %s, Discord code %s)',type(error).__name__,getattr(error,'status','n/a'),getattr(error,'code','n/a'))
+        return await report_error(interaction,result_post_error(error))
     await asyncio.to_thread(store.record_result_post,state['id'],message.id)
 
 
