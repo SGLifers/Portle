@@ -593,3 +593,19 @@ messages, command-sync calls, credentials, DB changes or bot/Atlas restarts.
 Activate with Ctrl+C / `./run.sh` to resync commands, then open a fresh board
 using Play Portle or /portle play. Old ephemeral boards are not retroactively
 edited and their controls expire after restart.
+
+## Open capture workspace and editor — 2026-11-04
+
+User requested relaunching Atlas and the editor to prepare more screenshots.
+The existing Portle preview process PID213145/session70417 was still listening
+on127.0.0.1:8742; /manage returned200, so reused it. Opened a fresh valid editor
+browser2/tab8 at http://127.0.0.1:8742/manage and selected Terra13 to match the
+user's Atlas map. The six empty upload slots are ready; nothing was uploaded,
+cleared, published or unpublished. Screenshot: ignored .local/relaunch-editor.png.
+
+Atlas was stopped; launched PortalAtlas/./run.sh, owned PID372689/session49751,
+127.0.0.1:8741. Its .local/server.pid now reflects that identity. Reloaded valid
+Atlas tab5 at /#map=MAP_Terra13; renderer and Screenshot control are ready.
+Both browser tabs marked deliverable and both servers left running. Old error
+tabs and Discord authorization page left alone; user-managed bot untouched.
+No application code changed or tests required; HTTP/UI checks verified readiness.
