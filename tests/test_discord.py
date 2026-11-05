@@ -32,7 +32,10 @@ class DiscordTests(unittest.IsolatedAsyncioTestCase):
     async def asyncTearDown(self):self.temp.cleanup()
     async def test_command_schema_and_no_privileged_intents(self):
         client=PortleClient(self.store);schema=client.tree.get_commands()[0].to_dict(client.tree)
-        self.assertEqual(schema['name'],'portle');self.assertEqual(len(schema['options']),8)
+        self.assertEqual(schema['name'],'portle');self.assertEqual(len(schema['options']),9)
+        reset=next(c for c in schema['options'] if c['name']=='reset')
+        self.assertEqual(reset['options'][0]['name'],'player');self.assertEqual(reset['options'][0]['type'],6)
+        self.assertTrue(reset['options'][0]['required'])
         self.assertFalse(client.intents.message_content);self.assertFalse(client.intents.members)
         self.assertNotIn('token',str(schema).lower());await client.close()
     async def test_practice_command_rejects_members_and_moderators_privately(self):
@@ -60,6 +63,40 @@ class DiscordTests(unittest.IsolatedAsyncioTestCase):
         await play.callback(group,event)
         self.assertEqual(event.edit_original_response.call_args.kwargs['view'].mode,'daily')
         self.assertTrue(event.response.flags['ephemeral']);self.assertIsNone(group.default_permissions)
+        await client.close()
+    async def test_reset_command_denies_members_moderators_and_dm_before_mutation(self):
+        client=PortleClient(self.store);group=client.tree.get_command('portle');command=group.get_command('reset')
+        events=[interaction(),interaction(),interaction(administrator=True)]
+        events[1].permissions=discord.Permissions(manage_guild=True);events[2].guild_id=None
+        for event in events:
+            with patch.object(self.store,'reset_daily',wraps=self.store.reset_daily) as reset:
+                with self.assertRaises(app_commands.MissingPermissions) as caught:await command._check_can_run(event)
+                await group.on_error(event,caught.exception);reset.assert_not_called()
+            self.assertTrue(event.response.send_message.call_args.kwargs['ephemeral'])
+            self.assertIn('server administrators',event.response.send_message.call_args.args[0])
+        await client.close()
+    async def test_admin_reset_targets_member_privately_and_old_board_cannot_be_used(self):
+        target=self.store.start('99');target=self.store.act(target['id'],'99',0,guess=target['puzzle']['map']['name'])
+        old=RoundView(self.store,target)
+        client=PortleClient(self.store);group=client.tree.get_command('portle');command=group.get_command('reset')
+        event=interaction(administrator=True);self.assertTrue(await command._check_can_run(event))
+        await command.callback(group,event,SimpleNamespace(id=99))
+        self.assertEqual(event.response.flags,{'ephemeral':True,'thinking':True})
+        text=event.edit_original_response.call_args.kwargs['content']
+        self.assertIn('<@99>',text);self.assertIn('Reset',text);self.assertNotIn(target['puzzle']['map']['name'],text)
+        self.assertEqual(event.edit_original_response.call_args.kwargs['allowed_mentions'].to_dict()['parse'],[])
+        event.channel.send.assert_not_awaited();self.assertEqual(self.store.stats('99')['played'],0)
+        fresh=self.store.start('99');self.assertNotEqual(fresh['id'],target['id']);self.assertEqual(fresh['attempts'],[])
+        player=interaction('99');await old.skip_button.callback(player)
+        self.assertTrue(player.followup.send.call_args.kwargs['ephemeral']);self.assertEqual(self.store.start('99')['version'],0)
+        self.assertTrue(await RoundView(self.store,fresh).interaction_check(interaction('99')))
+        self.assertEqual(self.store.start('11')['id'],self.state['id']);await client.close()
+    async def test_admin_reset_of_unplayed_member_is_noop_with_private_feedback(self):
+        client=PortleClient(self.store);group=client.tree.get_command('portle');event=interaction(administrator=True)
+        await group.reset.callback(group,event,SimpleNamespace(id=99))
+        self.assertIn('no daily score or guesses',event.edit_original_response.call_args.kwargs['content'])
+        self.assertTrue(event.response.flags['ephemeral']);event.channel.send.assert_not_awaited()
+        with self.store.connection() as db:self.assertEqual(db.execute('SELECT count(*) FROM rounds WHERE user_id=?',('99',)).fetchone()[0],0)
         await client.close()
     async def test_practice_requires_a_server_and_rechecks_permission_on_existing_boards(self):
         client=PortleClient(self.store);practice=client.tree.get_command('portle').get_command('practice')

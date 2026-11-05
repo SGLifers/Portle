@@ -518,3 +518,50 @@ Discord status-code and thread-permission sources consulted. Updated setup guide
 Verification: full Python suite passed81 tests in8.380s; git diff --check passed.
 User must complete the server installation; the agent has not changed external
 permissions or verified a successful public post after installation.
+
+## Admin daily reset command — 2026-11-04
+
+User requested an admin command to reset someone's daily score. Added
+`/portle reset player:@member`, with a required discord.Member picker (user option)
+and a runtime Administrator/server-context check. The shared check/message was
+renamed from practice-specific to server_admin_check/ADMIN_ONLY_MESSAGE; practice
+restrictions remain unchanged. Reset confirmation is deferred/ephemeral, omits
+answers/clues, uses AllowedMentions.none and does not DM or ping the target.
+Help, command description, README and setup guide describe the scope. Nine slash
+subcommands now exist; no new privileged intents or bot permissions are needed.
+
+GameStore.reset_daily resets only the current configured-local date and current
+manual/generated clue mode. It replaces the active round ID/state with a fresh
+clue1 round using the same frozen puzzle snapshot, without regenerating clues.
+Stats, distribution and leaderboard derive from active rounds, so today's old
+result is immediately excluded; earlier days, other players, practice, legacy
+mode scores, puzzle snapshots and guild participants remain intact. No progress
+is a no-op rather than creating/resetting a new round. Daily state is per user
+across this bot's servers; reset applies everywhere, stated in command/help/docs.
+
+New private daily_resets table records interaction ID, actor, target, guild,
+local day, previous state, fresh round ID and timestamp. Archive and replacement
+commit together in BEGIN IMMEDIATE. Interaction IDs make both actual resets and
+no-ops idempotent across retries/restart, including retries after new guesses.
+Different-target reuse of a reset event is rejected. Old boards cannot get/act on
+their removed round ID; old action-event IDs and result-post reservations are
+retained as tombstones to prevent replay against fresh progress. Finishing the
+new attempt can auto-post a new result. Existing public posts are deliberately
+left visible; no channel messages are deleted. The player reopens with Play
+Portle or /portle play. There is no new public reset API on the browser preview.
+
+Verification: full Python suite passed92 tests in8.638s; git diff --check passed.
+Eleven added tests cover member/moderator/DM denial, admin target selection and
+ephemeral/no-ping feedback, old-board rejection, fresh/unplayed no-ops, wins and
+losses, prior-history/player/practice preservation, saved audit, stale event
+replay, concurrent reset delivery under4 workers, restart idempotency, timezone
+boundaries, post eligibility for a new attempt, manual frozen clues after
+republish/unpublish and legacy-score isolation. Schema checks confirm the required
+user picker and unchanged nonprivileged intents. Consulted official discord.py
+member-option documentation and inspected the installed SDK-generated schema.
+
+No real player score was reset, no production database/schema was touched and no
+Discord messages, permission edits, bot restart or credential reads were performed.
+User-managed bot and Atlas remain untouched. Activate by Ctrl+C / `./run.sh` so
+startup resyncs the command group and creates the audit table in the chosen DB.
+Then use `/portle reset player:@member`; the member reopens their daily board.

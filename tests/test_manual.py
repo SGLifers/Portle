@@ -82,6 +82,18 @@ class ManualTests(ManualFixture,unittest.TestCase):
         self.assertEqual(restored.start('u'),s);self.assertEqual(restored.image(s),self.store.image(s))
         self.now+=timedelta(days=1)
         with self.assertRaises(GameError):restored.start('u')
+    def test_reset_reuses_frozen_manual_clues_and_preserves_legacy_scores(self):
+        from helpers import fixture_catalog
+        self.pack();state=self.store.start('u');first=self.store.image(state)
+        self.store.act(state['id'],'u',0,guess=state['puzzle']['map']['name'])
+        legacy=GameStore(self.root/'game.db',fixture_catalog(),clock=lambda:self.now)
+        old=legacy.start('u');old=legacy.act(old['id'],'u',0,guess=old['puzzle']['map']['name'])
+        self.library.upload(self.mid,1,screenshot(5));self.library.publish(self.mid);self.library.unpublish(self.mid)
+        result=self.store.reset_daily('u',actor_id='admin',guild_id='server',event_id='manual-reset')
+        self.assertTrue(result['changed']);fresh=self.store.start('u')
+        self.assertEqual(fresh['puzzle'],state['puzzle']);self.assertEqual(self.store.image(fresh),first)
+        self.assertEqual(self.store.stats('u')['played'],0);self.assertEqual(legacy.stats('u')['wins'],1)
+        self.assertEqual(legacy.get(old['id'],'u'),old)
     def test_changed_media_is_detected(self):
         digest=self.library.upload(self.mid,1,screenshot());(self.library.root/'images'/(digest+'.png')).write_bytes(b'changed')
         with self.assertRaises(GameError):self.library.image(digest)

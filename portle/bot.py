@@ -7,10 +7,10 @@ from discord import app_commands
 
 from .game import GameError,public_view,share_text,revealed_stage
 
-PRACTICE_ADMIN_MESSAGE='Practice is restricted to server administrators. Use /portle play for the daily puzzle.'
+ADMIN_ONLY_MESSAGE='This action is restricted to server administrators. Use /portle play for the daily puzzle.'
 
 
-def practice_admin_check(interaction):
+def server_admin_check(interaction):
     if interaction.guild_id is None or not interaction.permissions.administrator:
         raise app_commands.MissingPermissions(['administrator'])
     return True
@@ -144,9 +144,9 @@ class RoundView(discord.ui.View):
         if str(interaction.user.id)!=self.owner:
             await report_error(interaction,'This is another player\'s round. Use /portle play for your own clues.');return False
         if self.mode=='practice':
-            try:practice_admin_check(interaction)
+            try:server_admin_check(interaction)
             except app_commands.MissingPermissions:
-                await report_error(interaction,PRACTICE_ADMIN_MESSAGE);return False
+                await report_error(interaction,ADMIN_ONLY_MESSAGE);return False
         return True
 
     async def change_map_page(self,interaction,offset):
@@ -213,11 +213,22 @@ class PortleCommands(app_commands.Group):
         await show_round(interaction,self.store,state)
 
     @app_commands.command(description='Admins only: start a practice round, separate from daily scores')
-    @app_commands.check(practice_admin_check)
+    @app_commands.check(server_admin_check)
     async def practice(self,interaction:discord.Interaction):
         await interaction.response.defer(ephemeral=True,thinking=True)
         state=await asyncio.to_thread(self.store.start,interaction.user.id,'practice',interaction.guild_id)
         await show_round(interaction,self.store,state)
+
+    @app_commands.command(description='Admins only: reset a member\'s current daily score and guesses across servers')
+    @app_commands.check(server_admin_check)
+    @app_commands.describe(player='Server member whose current daily round will be reset')
+    async def reset(self,interaction:discord.Interaction,player:discord.Member):
+        await interaction.response.defer(ephemeral=True,thinking=True)
+        result=await asyncio.to_thread(self.store.reset_daily,player.id,actor_id=interaction.user.id,guild_id=interaction.guild_id,event_id=interaction.id)
+        if result['changed']:
+            text=f"Reset <@{player.id}>'s daily score and guesses for {result['day']}. They can use Play Portle or /portle play to reopen today's puzzle. Daily progress is shared across servers. Earlier days and practice are preserved. Existing public result posts remain visible."
+        else:text=f"<@{player.id}> has no daily score or guesses to reset for {result['day']}."
+        await interaction.edit_original_response(content=text,allowed_mentions=discord.AllowedMentions.none())
 
     @app_commands.command(description='Guess today\'s map; autocomplete lists valid answers')
     @app_commands.describe(map_name='Arena name')
@@ -267,12 +278,13 @@ class PortleCommands(app_commands.Group):
             +
             f'Daily resets at midnight **{self.store.zone.key}**; everyone gets the same map with private progress.\n'
             '`/portle play` daily · `/portle practice` admins only · `/portle guess` guess daily · `/portle maps` answer list · `/portle stats` records.\n'
+            'Admins: `/portle reset player` resets that member\'s current daily score and guesses. Earlier days and practice are preserved; daily progress is shared across servers.\n'
             'Finishing a daily automatically posts your score and squares in this channel, without the map name or clues. Anyone can use **Play Portle** on a result to open their own private daily. **Share result** or `/portle share` can post a score again. Practice does not auto-post. Private board controls expire after 15 minutes; public Play buttons survive restarts. Resume the daily with `/portle play`. Server administrators can start fresh practice with `/portle practice`; practice does not affect daily records.',ephemeral=True)
 
     async def on_error(self,interaction,error):
         original=getattr(error,'original',error)
         if isinstance(original,app_commands.MissingPermissions) and 'administrator' in original.missing_permissions:
-            return await report_error(interaction,PRACTICE_ADMIN_MESSAGE)
+            return await report_error(interaction,ADMIN_ONLY_MESSAGE)
         logging.getLogger(__name__).error('Command failed: %s',type(original).__name__)
         await report_error(interaction,str(original) if isinstance(original,GameError) else 'The command could not finish. Your progress is saved; try /portle play again.')
 

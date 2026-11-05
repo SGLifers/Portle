@@ -26,6 +26,7 @@ class GameStore:
                 CREATE TABLE IF NOT EXISTS events(user_id TEXT NOT NULL,event_id TEXT NOT NULL,round_id TEXT NOT NULL,PRIMARY KEY(user_id,event_id));
                 CREATE TABLE IF NOT EXISTS participants(guild_id TEXT NOT NULL,user_id TEXT NOT NULL,PRIMARY KEY(guild_id,user_id));
                 CREATE TABLE IF NOT EXISTS result_posts(round_id TEXT PRIMARY KEY,status TEXT NOT NULL,message_id TEXT);
+                CREATE TABLE IF NOT EXISTS daily_resets(event_id TEXT PRIMARY KEY,actor_id TEXT NOT NULL,user_id TEXT NOT NULL,guild_id TEXT NOT NULL,day TEXT NOT NULL,old_state TEXT,new_round_id TEXT,created_at TEXT NOT NULL);
                 CREATE INDEX IF NOT EXISTS round_owner ON rounds(user_id,mode);
             ''')
             db.execute('INSERT OR IGNORE INTO settings VALUES (?,?)',('seed',secrets.token_hex(32)))
@@ -85,6 +86,30 @@ class GameStore:
 
     def get(self,round_id,user_id):
         with self.connection() as db:return self._owned(db,round_id,user_id)
+
+    def reset_daily(self,user_id,*,actor_id,guild_id,event_id):
+        """Reset only today's progress; archive it and invalidate the old board."""
+        if guild_id is None:raise GameError('Reset a daily score from a server.')
+        if not event_id:raise GameError('A reset interaction ID is required.')
+        user_id=str(user_id);actor_id=str(actor_id);guild_id=str(guild_id);event_id=str(event_id)
+        with self.transaction() as db:
+            old=db.execute('SELECT * FROM daily_resets WHERE event_id=?',(event_id,)).fetchone()
+            if old:
+                if (old['actor_id'],old['user_id'],old['guild_id'])!=(actor_id,user_id,guild_id):raise GameError('This reset interaction was already used for another request.')
+                return {'changed':old['old_state'] is not None,'day':old['day']}
+            day=self.today().isoformat();pid=('manual:' if self.clues else '')+'daily:'+day
+            row=db.execute('SELECT id,state FROM rounds WHERE puzzle_id=? AND user_id=? AND mode=?',(pid,user_id,'daily')).fetchone()
+            prior=None;new_id=None
+            if row:
+                state=json.loads(row['state'])
+                if state['attempts'] or state['status']!='playing':
+                    prior=row['state'];new_id=uuid.uuid4().hex
+                    fresh=new_state(new_id,user_id,state['puzzle'],'daily')
+                    db.execute('UPDATE rounds SET id=?,state=?,created_at=? WHERE id=?',(new_id,json.dumps(fresh),self.clock().isoformat(),row['id']))
+            # Retain old event IDs and post reservations as replay tombstones.
+            db.execute('INSERT INTO daily_resets VALUES (?,?,?,?,?,?,?,?)',
+                (event_id,actor_id,user_id,guild_id,day,prior,new_id,self.clock().isoformat()))
+            return {'changed':prior is not None,'day':day}
 
     def claim_result_post(self,round_id,user_id):
         """Reserve one automatic post across replays, processes and restarts."""

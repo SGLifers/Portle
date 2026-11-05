@@ -96,6 +96,16 @@ restriction does not require granting the bot Administrator. Discord may still
 show the practice subcommand to members; the bot enforces permission before
 creating a round. The local browser playtest has no Discord roles.
 
+Administrators can also run `/portle reset player:@member` to clear that member's
+current daily score and guesses. It uses the configured local daily date, preserves
+earlier days and practice, and reuses today's frozen puzzle. Stats/leaderboards
+update immediately. The member reopens with Play Portle or `/portle play`; old
+board controls are invalidated. Reset confirmation stays private and does not
+ping the member. Previously posted results remain visible. Because daily progress
+is shared across this bot's servers, the reset applies to that member's current
+daily everywhere. The private database keeps an audit and previous state. This
+command requires the player's Administrator permission, not elevated bot access.
+
 Automatic result delivery is reserved in SQLite before sending to prevent duplicate
 posts from concurrent/replayed interactions or restarts. A failed or uncertain send
 is not retried automatically. The private board and scores remain saved; check

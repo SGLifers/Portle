@@ -57,6 +57,7 @@ your configured application and bot token; never paste the token into chat.
 | --- | --- |
 | `/portle play` | Open or resume the private daily |
 | `/portle practice` | Administrators only: start new private practice |
+| `/portle reset player:@member` | Administrators only: reset that member's current daily score and guesses |
 | `/portle guess map_name` | Guess the daily, with autocomplete |
 | `/portle maps` | List accepted answers |
 | `/portle stats` | Daily results and guess distribution |
@@ -82,6 +83,17 @@ role name alone does not grant access. Both the command and practice board
 controls check current permissions. Members can still play the daily puzzle, and
 denied practice requests respond privately. The loopback browser preview remains
 an owner playtest/editor without Discord accounts or roles.
+
+Admins can use `/portle reset player:@member` to give a server member another
+attempt at today's same puzzle. It removes today's result from their stats and
+leaderboard, clears their guesses and starts them again at clue1. Earlier daily
+history and practice rounds are preserved. The date follows `PORTLE_TIMEZONE`.
+Daily progress is shared across servers, so this reset applies to that player's
+current daily everywhere this bot runs. Confirmation is private, and old public
+result posts remain visible. The player must reopen with Play Portle or
+`/portle play`; their previous board stops working. A private SQLite audit retains
+the previous state and admin identity. Repeated delivery of the same reset does
+not erase a later attempt. Resetting someone with no current progress is a no-op.
 
 Finishing a daily puzzle (win or loss) automatically posts your score and colored
 squares in the channel where you finished. The post identifies the player without
