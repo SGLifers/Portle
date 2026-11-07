@@ -669,3 +669,32 @@ into a second server remains for an administrator with Manage Server to authoriz
 Use the existing application install link; keep one bot process/token/library.
 Restart via Ctrl+C / ./run.sh to load current source/config; doctor should report
 global: all installed servers. Every joining server gets the global /portle group.
+
+## GitHub publication and secret audit — 2026-11-06
+
+User explicitly authorized pushing this repository to
+https://github.com/SGLifers/Portle.git after checking for sensitive information.
+The destination had no branch refs before publication. The initial history had
+16 commits, 124 unique file blobs and 33 paths: source, tests, documentation,
+configuration examples and an empty data placeholder. No screenshots, extracted
+geometry, SQLite files, local credentials or other binary assets were committed.
+
+Gitleaks v8.30.1 scanned all commits with full redaction and found no leaks.
+An independent scan read every historical blob and commit metadata, compared the
+configured local bot credential in memory without printing it, and checked for
+Discord tokens/IDs, webhook credentials, private keys, GitHub tokens and URLs
+containing credentials. No sensitive values were found. Nine broad assignment
+matches were reviewed: example placeholders or environment-variable lookups.
+All commit author/committer identities use Codex's local placeholder identity.
+Verified Git ignores .env variants, .local, .venv, databases and clue assets.
+Detailed audit outputs/tools stay under ignored .local/security-audit/.
+
+Publish only the committed branch history; never add ignored local files.
+The intended remote branch is main, keeping local codex/portle as the working
+branch. Git HTTPS authentication is unavailable in this shell; existing SSH
+authentication successfully accessed the same destination, so origin uses the
+requested HTTPS fetch URL and an SSH push URL. No history rewrite is needed.
+This documentation-only milestone does not change runtime behavior. No bot
+restart, Discord messages, score changes or local clue-library edits were made.
+After pushing, verify the remote main SHA matches local HEAD before reporting
+publication complete. The earlier no-remote notes describe historical state.
