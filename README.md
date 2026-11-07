@@ -54,6 +54,9 @@ and configure a token in a local `.env`, then run:
 The bot implementation is tested offline. A live Discord connection still requires
 your configured application and bot token; never paste the token into chat.
 
+For a hosted installation, follow the [BisectHosting setup and data migration
+guide](docs/BISECT_HOSTING.md). Its Python startup filename is the root `bot.py`.
+
 Portle supports installation in multiple Discord servers with one running bot,
 token and clue library. Leave `DISCORD_GUILD_ID` blank for global command
 registration; a populated value is only for single-server development. The

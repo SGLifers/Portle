@@ -734,3 +734,48 @@ shows the editor and is marked deliverable. Old error tabs were left untouched.
 The bot and Atlas processes were not changed. Historical .local/preview.sqlite3
 and all user libraries/databases remain intact; they are not part of this commit.
 Earlier preview startup/process instructions above are obsolete.
+
+## BisectHosting preparation and startup readiness — 2026-11-06
+
+User purchased Bisect Discord bot hosting and requested setup. Added root bot.py
+for the panel's BotStartFile field: with no arguments it invokes the existing bot
+CLI; explicit arguments such as doctor still work. Docs/BISECT_HOSTING.md covers
+Python3.12, requirements/pip packages, root layout, Git/file installation, private
+.env configuration, global commands, timezone preservation, database/library
+migration, initial verification and later clue-only updates. README links it.
+User supplied Bisect's exact readiness requirement. PortleClient.on_ready now
+prints `successfully finished startup` to stdout with flush=True, after Discord
+readiness rather than merely importing or registering commands. Reconnect-ready
+events can emit the same safe marker again. No credentials or identifiers in it.
+
+Known local config was read only for migration paths/mode/timezone, without
+printing the token. It uses manual mode, default data/clues and production SQLite,
+America/Los_Angeles and the bundled names list. User replied stopped after being
+asked to Ctrl+C the bot. Verified local process PID18040 is actually suspended
+(stateT), not exited. No signals were sent. It cannot write while suspended, so
+prepared the snapshot, but tell the user to fg then Ctrl+C in its original terminal
+to fully close it before activating the hosted copy. Do not resume it as a normal
+local bot after migration, because the hosted database will become authoritative.
+
+Ignored .local/bisect-migration-current.txt points to the current private export
+folder. portle-private-data.zip contains only data/portle.sqlite3 and the entire
+clue library's index/images (24 PNGs,4 published sets), with no .env/token. Used
+SQLite backup and a shared clue-library file lock; source database and clue files
+were not edited. Converted the copied database to DELETE journal mode before
+archiving, so it is standalone and needs no copied WAL/SHM. An initial archive
+validation caught temporary SQLite sidecar entries; repacked and revalidated the
+final archive against the strict data-file allowlist. Zip integrity/SQLite quick
+check passed; every historical clue reference is present. Restoring the ZIP to a
+temporary directory passed offline doctor with credentials explicitly empty.
+Files/archives are private mode0600 under a mode0700 export directory. Do not
+publish these data archives or put real IDs/images in Git. Source ZIP is generated
+with git archive from the final committed HEAD, separately from private data.
+
+Validation:95 tests passed in6.020s, including a new offline lifecycle check that
+setup_hook alone emits no readiness marker and on_ready prints/flushed the exact
+required phrase. Launcher doctor and absent-token startup checks passed using
+isolated temporary databases/libraries, without connecting to Discord. Final
+whitespace/secret scan checks required before push. No Bisect login, account
+settings, remote upload, hosted process, Discord commands/messages or production
+score changes were performed. Hosting remains for the user to configure using
+the prepared ZIPs and guide. Existing local editor and Atlas were untouched.

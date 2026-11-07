@@ -310,4 +310,7 @@ class PortleClient(discord.Client):
         self.add_view(PlayPortleView(self.store))
         logging.getLogger(__name__).info('Registered %d command groups (%s)',len(commands),'single development server' if self.guild_id else 'global: all installed servers')
 
-    async def on_ready(self):logging.getLogger(__name__).info('Portle connected and ready')
+    async def on_ready(self):
+        logging.getLogger(__name__).info('Portle connected and ready')
+        # Bisect's panel recognizes this exact stdout marker after Discord is ready.
+        print('successfully finished startup',flush=True)

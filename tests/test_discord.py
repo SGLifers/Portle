@@ -1,4 +1,6 @@
 from io import BytesIO
+from io import StringIO
+from contextlib import redirect_stdout
 from datetime import timedelta
 from pathlib import Path
 import tempfile
@@ -145,6 +147,17 @@ class DiscordTests(unittest.IsolatedAsyncioTestCase):
         with patch.object(client.tree,'sync',AsyncMock(return_value=[])) as sync,patch.object(client.tree,'copy_global_to') as copy:
             await client.setup_hook();sync.assert_awaited_once_with();copy.assert_not_called()
         self.assertEqual(len(client.persistent_views),1);await client.close()
+    async def test_host_startup_marker_is_printed_only_on_ready(self):
+        client=PortleClient(self.store);output=StringIO()
+        try:
+            with redirect_stdout(output),patch.object(client.tree,'sync',AsyncMock(return_value=[])):
+                await client.setup_hook()
+                self.assertEqual(output.getvalue(),'')
+                with patch('builtins.print',wraps=print) as printer:
+                    await client.on_ready()
+                    printer.assert_called_once_with('successfully finished startup',flush=True)
+            self.assertEqual(output.getvalue(),'successfully finished startup\n')
+        finally:await client.close()
     async def test_server_install_url_is_reusable_and_requests_minimal_bot_permissions(self):
         query=parse_qs(urlparse(server_install_url(12345)).query)
         self.assertEqual(query['client_id'],['12345']);self.assertEqual(query['scope'],['bot applications.commands'])
