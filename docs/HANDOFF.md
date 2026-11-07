@@ -779,3 +779,23 @@ whitespace/secret scan checks required before push. No Bisect login, account
 settings, remote upload, hosted process, Discord commands/messages or production
 score changes were performed. Hosting remains for the user to configure using
 the prepared ZIPs and guide. Existing local editor and Atlas were untouched.
+
+## Fresh hosted scores and clues-only transfer — 2026-11-06
+
+User will install source directly from GitHub and does not require old scores to
+transfer. The application still uses SQLite; no MySQL/PostgreSQL integration was
+requested or implemented. Updated Bisect guide to make clues-only/fresh database
+the primary route and retain full migration as an optional path. A new hosted
+database creates a new seed and can change daily selection. Preserve hosted
+scores after launch, and do not overwrite them with the old local snapshot.
+
+Created ignored portle-clues-only.zip in the existing private export folder
+referenced by .local/bisect-migration-current.txt. It contains24 PNGs and the
+clue index only, with no database or token. Verified zip integrity, strict clue
+path allowlist and all draft/published image references. Existing full snapshot
+and local databases were preserved. No hosting files were uploaded or deleted.
+
+Git status revealed an untracked editor swap filename for .env. Did not inspect
+its content. Added standard Vim swap/backup ignore patterns to keep such local
+files out of future commits. Confirm ignore checks and whitespace/secret scan
+before push; no application behavior changed or additional runtime tests needed.

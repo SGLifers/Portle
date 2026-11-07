@@ -45,7 +45,28 @@ The root launcher also accepts `doctor` for an offline check if the panel suppor
 startup arguments. With a shell, use `python bot.py doctor`. The normal launch
 command is `python bot.py`, with no arguments.
 
-## 3. Transfer the existing game data
+## 3. Upload clues and start fresh
+
+To start without previous scores, upload and extract the private
+`portle-clues-only.zip` at the hosting server root after the Git installation.
+This supplies `data/clues/index.json` and all saved images under
+`data/clues/images/`. Do not upload the older database-containing migration ZIP
+for a fresh installation.
+
+On first startup, Portle creates `data/portle.sqlite3` with empty scores and a new
+installation seed. This can select a different daily map than the local bot.
+After launch, preserve this hosted file across updates to retain new scores.
+The current bot uses SQLite directly; it does not connect to Bisect's optional
+MySQL/PostgreSQL service. Those would require a separate storage implementation.
+
+Stop the local bot before starting the hosted copy, even with a fresh database.
+Keep the local editor for authoring clues. Do not delete the local database as
+part of this setup. If a database already exists on the host, uploading clues
+does not clear it; the fresh-start instructions assume an empty installation.
+
+### Optional migration of old scores
+
+The following path is only for an installation that wants to preserve old scores.
 
 Before the final snapshot, stop the local Discord bot with Ctrl+C and leave it
 stopped after moving to Bisect. Running the same bot locally and remotely can
@@ -102,8 +123,9 @@ Bisect's generic example bot configuration is not Portle's configuration.
    Portle prints `successfully finished startup` to stdout, with immediate
    flushing, only when Discord dispatches its ready event. This is the exact
    phrase Bisect's panel requires to recognize a completed startup.
-3. In Discord, open `/portle stats` and confirm existing records, then
-   `/portle play` to resume the current daily. Confirm the clue image loads.
+3. In Discord, open `/portle stats` (initially empty on a fresh installation), then
+   `/portle play` to start the daily. Confirm the clue image loads. If you chose
+   the optional database migration, verify old records and daily progress instead.
 4. An administrator can use `/portle practice` for a disposable image/control
    check. Practice results remain private. A future daily completion should post
    its score and persistent Play Portle button in the permitted channel.
