@@ -31,3 +31,8 @@ server command permission overrides when touching legacy development registratio
 
 Commit milestones and keep handoff documentation current. At most four CPUs.
 Do not publish the game or proprietary assets as part of local development.
+
+Browser gameplay has been removed. The `editor` CLI serves only the local clue
+authoring UI at / and /manage; it must not open a player database or expose
+gameplay endpoints. Discord is the player interface. Preserve existing private
+clue libraries, Discord progress and unused historical browser databases.

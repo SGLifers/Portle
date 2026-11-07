@@ -5,9 +5,9 @@ application that you own and a bot token configured on your computer. Keep the
 token in a local editor; never paste it into chat, source code, a screenshot or Git.
 
 Before playing, publish at least one six-screenshot set in the local clue editor.
-Run `.venv/bin/python -m portle preview --port 8742` and open
-http://127.0.0.1:8742/manage. The preview and bot share `data/clues/` by default but
-keep separate player progress databases. See [manual clues](MANUAL_CLUES.md).
+Run `.venv/bin/python -m portle editor --port 8742` and open
+http://127.0.0.1:8742/manage. The editor and bot share `data/clues/` by default.
+The editor has no gameplay or player database. See [manual clues](MANUAL_CLUES.md).
 
 ## 1. Create and install the application
 
@@ -24,9 +24,9 @@ keep separate player progress databases. See [manual clues](MANUAL_CLUES.md).
    application commands.
 
 Portle receives interactions over Discord's outbound Gateway connection. Leave
-the application's **Interactions Endpoint URL** empty. The local preview URL is
-only a playtest; it is not a Discord webhook endpoint. No public web server,
-tunnel, router port forwarding or separate web hosting is required for the bot.
+the application's **Interactions Endpoint URL** empty. The local editor URL is
+for authoring screenshots. No public web server, tunnel, router port forwarding
+or separate web hosting is required for the bot.
 
 ## 2. Configure this checkout
 
@@ -136,7 +136,7 @@ The bot rechecks this permission on existing practice board controls, including
 clue review. Daily play remains available to ordinary members. This
 restriction does not require granting the bot Administrator. Discord may still
 show the practice subcommand to members; the bot enforces permission before
-creating a round. The local browser playtest has no Discord roles.
+creating a round.
 
 Administrators can also run `/portle reset player:@member` to clear that member's
 current daily score and guesses. It uses the configured local daily date, preserves
@@ -206,13 +206,13 @@ private because they contain Discord identifiers and the puzzle schedule seed.
 - **Buttons expired after restart or 15 minutes:** `/portle play` restores the
   daily board. `/portle practice` starts new practice; older practice buttons are
   not restored.
-- **No manual clues published:** start the local preview/editor and publish a
+- **No manual clues published:** start the local clue editor and publish a
   complete six-image set. The bot does not generate fallback clues in manual mode.
 - **Missing clue image:** restore the entire clue library from backup, including
   older image files referenced by existing rounds. Keep it with the game database.
 
-Implementation was validated with offline Discord interaction mocks and the local
-browser; live Discord image delivery, permission behavior and dropdown responses must
+Implementation is tested with offline Discord interaction mocks and local editor
+HTTP tests; live Discord image delivery, permission behavior and dropdown responses must
 be confirmed after your application is connected.
 
 References: [Discord app setup](https://docs.discord.com/developers/quick-start/getting-started),

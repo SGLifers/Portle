@@ -2,18 +2,19 @@
 
 Guess a Splitgate arena from **manually authored screenshot clues**. You capture
 six views in Portal Atlas, choose their map answer and reveal order, then Portle
-shows the images in a daily or practice guessing game.
+shows the images in a daily or practice Discord guessing game.
 
 ## Start
 
 ```bash
 ./setup.sh
-.venv/bin/python -m portle preview --port 8742
+.venv/bin/python -m portle editor --port 8742
 ```
 
 Open **http://127.0.0.1:8742/manage** to choose a map, upload six screenshots and
-publish the set. Open **http://127.0.0.1:8742** to play. The library starts empty;
-only complete published sets are eligible. No game installation is required for
+publish the set. The root URL opens the same editor. Play through Discord;
+there is no browser gameplay. The library starts empty; only complete published
+sets are eligible. No game installation is required for
 this manual workflow. Python 3.12+ is recommended; dependencies stay in `.venv`.
 
 See [manual clue guide](docs/MANUAL_CLUES.md) for the full capture/edit/publish
@@ -79,10 +80,8 @@ server administrators do not need the bot token or access to the editor.
 | `/portle help` | Explain the rules |
 
 The board's alphabetical map dropdown works in daily and practice. Selecting a
-map in Discord immediately submits that guess; in the browser, select a map then
-press **Make a guess**. Already-guessed maps are removed from the Discord dropdown;
-the browser disables them and labels them **already guessed**. This follows the
-current round's saved history and resets for new practice rounds. All other
+map immediately submits that guess. Already-guessed maps are removed from the
+dropdown. This follows the current round's saved history and resets for new practice rounds. All other
 accepted names remain available, including maps without published clues.
 Discord shows Previous/Next maps controls if more than 25 unguessed names remain;
 browsing these pages is free. The optional `/portle guess map_name` command
@@ -94,8 +93,8 @@ requires starting a new round. No ordinary chat-message reading is needed.
 Discord practice requires the player's **Administrator** server permission; a
 role name alone does not grant access. Both the command and practice board
 controls check current permissions. Members can still play the daily puzzle, and
-denied practice requests respond privately. The loopback browser preview remains
-an owner playtest/editor without Discord accounts or roles.
+denied practice requests respond privately. The loopback web server is only a
+clue authoring tool; it has no player accounts or gameplay.
 
 Admins can use `/portle reset player:@member` to give a server member another
 attempt at today's same puzzle. It removes today's result from their stats and
@@ -127,7 +126,7 @@ public messages. There is no manual Discord share button or command.
 
 `PORTLE_CLUE_SOURCE=manual` is the default. `PORTLE_CLUES` overrides the default
 `data/clues/` directory, and `PORTLE_DATABASE` overrides `data/portle.sqlite3`.
-The preview always uses `.local/preview.sqlite3`. `PORTLE_CATALOG` optionally
+The editor does not open a player database. `PORTLE_CATALOG` optionally
 provides a custom names-list JSON instead of `portle/map_names.json`.
 
 Drafts and published sets are separate. A started daily snapshots its six immutable

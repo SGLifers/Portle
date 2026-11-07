@@ -698,3 +698,39 @@ This documentation-only milestone does not change runtime behavior. No bot
 restart, Discord messages, score changes or local clue-library edits were made.
 After pushing, verify the remote main SHA matches local HEAD before reporting
 publication complete. The earlier no-remote notes describe historical state.
+
+## Remove browser gameplay; retain local clue editor — 2026-11-06
+
+User requested removing browser gameplay after confirming the Discord game does
+not need it. Removed web/index.html, web/app.js, the gameplay stylesheet and
+portle/preview.py. New portle/editor.py serves only the authoring page at both /
+and /manage, editor JS/CSS, and /api/manage endpoints. Old gameplay info, stats,
+round image, start/action endpoints and assets return404. Removed browser player
+cookies and gameplay HTTP handlers; Discord gameplay/store behavior is unchanged.
+
+Start the tool with `.venv/bin/python -m portle editor --port 8742`; the preview
+command is removed. The editor takes only the names catalog and ClueLibrary,
+without opening GameStore, creating player progress, connecting to Discord or
+requiring valid bot-only timezone/guild settings. It requires manual clue mode.
+Preserved Host/Origin checks, mutation capability, upload validation/limits,
+static route allowlist and response privacy/security headers. The editor keeps
+its existing layout using a standalone manage.css; removed Back to game and Play
+Portle links. README, setup/manual-clue docs and AGENTS describe Discord-only play.
+
+Replaced browser gameplay HTTP tests with editor coverage for complete upload,
+image review, publish, clear and unpublish, old-route removal, malformed payloads,
+foreign hosts/origins and private-file guards. CLI tests confirm the old command
+is rejected, generated mode cannot launch the editor and no player database is
+opened. Tests mock local dotenv loading. Full suite:94 tests passed in6.012s;
+manage.js syntax and git diff whitespace checks passed. Browser verification
+loaded the actual editor at the root URL, showing six slots/map choices and no
+play links, with no console errors/warnings. Screenshot is ignored
+.local/editor-only.png. No user clue uploads, publications or progress changes
+were made during browser QA; mutation tests use synthetic temporary libraries.
+
+No preview process was running. Started the new editor at127.0.0.1:8742,
+owned PID237621 / exec session9513, and left it running. Fresh browser2/tab10
+shows the editor and is marked deliverable. Old error tabs were left untouched.
+The bot and Atlas processes were not changed. Historical .local/preview.sqlite3
+and all user libraries/databases remain intact; they are not part of this commit.
+Earlier preview startup/process instructions above are obsolete.

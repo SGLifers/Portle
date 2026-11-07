@@ -25,15 +25,18 @@ image itself for any visible text that would reveal the answer.
 
 ## Upload and publish
 
-Open **http://127.0.0.1:8742/manage** while the Portle preview is running.
+Run `.venv/bin/python -m portle editor --port 8742`, then open
+**http://127.0.0.1:8742/manage** (or the root URL). This is a clue editor only;
+play Portle in Discord.
 
 1. Choose the map under **Map answer**.
 2. Upload a screenshot into each of the six numbered slots. Clue 1 appears first;
    clue 6 is the final chance. Uploads save immediately to a draft.
 3. Check the six previews, then click **Publish six clues**. Incomplete sets cannot
    be published or selected for gameplay.
-4. Return to Portle and start/resume the daily, or choose Practice. One published
-   map is enough to play; publish more sets to build the rotation pool.
+4. In Discord, use `/portle play` to start/resume the daily, or `/portle practice`
+   as an administrator. One published map is enough to play; publish more sets
+   to build the rotation pool.
 
 Re-upload a slot to replace it in the draft. **Clear clue** removes only that draft
 slot. Publish again when the revised six-image set is ready. **Remove from future
@@ -51,8 +54,8 @@ original six image hashes and still work after editing/unpublishing.
 - Earlier/later arrows review only already-revealed images without spending a guess.
 - A win or six misses ends the round, reveals the map name and unlocks all six images.
 - Invalid/repeated names remain free. Practice does not affect daily records.
-- Browser and Discord use exactly the same normalized screenshot bytes, with a
-  generic attachment filename. Manual clues have no artificial top/isometric switch.
+- Discord displays the normalized screenshot bytes with a generic attachment
+  filename. Manual clues have no artificial top/isometric switch.
 
 Daily resets still use `PORTLE_TIMEZONE` (UTC by default). Manual daily rounds and
 stats use their own namespace. Legacy generated rounds remain in the database and
@@ -85,8 +88,9 @@ still reference them. Tampered or missing files are detected when read.
 
 Library writes are locked across processes and publish index changes atomically.
 The browser editor and bot can share the same library on this computer. The bot
-sees newly published sets on the next new puzzle without a restart. Browser
-progress and Discord progress remain separate databases.
+sees newly published sets on the next new puzzle without a restart. The editor
+does not create or open a player progress database. Previous browser-preview
+progress, if present in `.local/preview.sqlite3`, is left untouched and unused.
 
 `PORTLE_CLUE_SOURCE=manual` is the default and needs only the bundled names roster.
 No game archives, geometry catalog or Portal Atlas process is required to play

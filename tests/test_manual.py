@@ -1,7 +1,6 @@
 import base64
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime,timedelta,timezone
-from http.cookiejar import CookieJar
 from io import BytesIO
 import json
 from pathlib import Path
@@ -14,7 +13,7 @@ from PIL import Image,PngImagePlugin
 from portle.catalog import Catalog
 from portle.clues import ClueLibrary
 from portle.game import GameError,public_view
-from portle.preview import server
+from portle.editor import server
 from portle.store import GameStore
 
 
@@ -116,10 +115,10 @@ class ManualTests(ManualFixture,unittest.TestCase):
 
 class ManualHttpTests(ManualFixture,unittest.TestCase):
     def setUp(self):
-        super().setUp();self.http=server(self.store,0)
+        super().setUp();self.http=server(self.catalog,self.library,0)
         self.thread=threading.Thread(target=self.http.serve_forever,daemon=True);self.thread.start()
         self.base='http://127.0.0.1:'+str(self.http.server_port)
-        self.client=urllib.request.build_opener(urllib.request.HTTPCookieProcessor(CookieJar()))
+        self.client=urllib.request.build_opener()
         self.key=json.loads(self.request('/api/manage/info')[1])['key']
     def tearDown(self):self.http.shutdown();self.http.server_close();self.thread.join();super().tearDown()
     def request(self,path,payload=None,headers=None):
@@ -136,11 +135,42 @@ class ManualHttpTests(ManualFixture,unittest.TestCase):
         self.assertIn(b'Build a clue set',self.request('/manage')[1])
         self.assertEqual(self.request('/data/clues/index.json')[0],404)
         self.assertEqual(self.request('/api/manage/image/../../index.json')[0],404)
-    def test_public_image_endpoint_guards_reveal_and_owner(self):
-        self.pack();state=json.loads(self.request('/api/start',{'mode':'daily'})[1]);rid=state['id']
-        self.assertEqual(self.request(f'/api/image/{rid}.png?version=0&clue=1')[0],200)
-        self.assertEqual(self.request(f'/api/image/{rid}.png?version=0&clue=2')[0],400)
-        with self.assertRaises(urllib.error.HTTPError):urllib.request.urlopen(self.base+f'/api/image/{rid}.png?version=0&clue=1')
+    def test_root_and_manage_are_editor_only(self):
+        code,html=self.request('/')
+        self.assertEqual(code,200);self.assertEqual(html,self.request('/manage')[1])
+        self.assertIn(b'Build a clue set',html)
+        self.assertNotIn(b'Back to game',html);self.assertNotIn(b'Play Portle',html)
+        for path in ['/manage.css','/manage.js']:self.assertEqual(self.request(path)[0],200)
+    def test_browser_gameplay_routes_and_assets_are_removed(self):
+        for path in ['/api/info','/api/stats','/api/image/'+'a'*32+'.png?version=0','/app.js','/style.css','/index.html']:
+            self.assertEqual(self.request(path)[0],404,path)
+        for path in ['/api/start','/api/action']:
+            self.assertEqual(self.request(path,{'mode':'daily'})[0],404,path)
+    def test_editor_publish_review_clear_and_unpublish(self):
+        headers={'X-Portle-Editor':self.key}
+        for slot in range(1,7):
+            code,body=self.request('/api/manage/upload',{'mapId':self.mid,'slot':slot,'image':base64.b64encode(screenshot(slot)).decode()},headers)
+            self.assertEqual(code,200)
+        digest=json.loads(body)['maps'][0]['draft'][0]
+        code,image=self.request(f'/api/manage/image/{digest}.png')
+        self.assertEqual(code,200);self.assertEqual(Image.open(BytesIO(image)).getpixel((0,0)),(30,10,15))
+        self.assertEqual(self.request('/api/manage/publish',{'mapId':self.mid},headers)[0],200)
+        self.assertIn(self.mid,self.library.published())
+        self.assertEqual(self.request('/api/manage/clear',{'mapId':self.mid,'slot':1},headers)[0],200)
+        self.assertIn(self.mid,self.library.published())
+        self.assertEqual(self.request('/api/manage/unpublish',{'mapId':self.mid},headers)[0],200)
+        self.assertNotIn(self.mid,self.library.published())
+    def test_editor_rejects_foreign_host_and_private_paths(self):
+        self.assertEqual(self.request('/api/manage/info',headers={'Host':'foreign.example'})[0],403)
+        for path in ['/.env','/data/portle.sqlite3','/../portle/store.py']:
+            self.assertEqual(self.request(path)[0],404)
+    def test_malformed_editor_requests_are_errors_without_mutation(self):
+        headers={'X-Portle-Editor':self.key}
+        for payload in [[],{'mapId':'not-a-map'},{'mapId':self.mid,'slot':1,'image':'not base64!'}]:
+            code,body=self.request('/api/manage/upload',payload,headers)
+            self.assertEqual(code,400);self.assertIn('error',json.loads(body))
+        self.assertEqual(self.library.published(),{})
+        self.assertTrue(all(value is None for value in self.library.management(self.catalog)[0]['draft']))
 
 
 if __name__=='__main__':unittest.main()

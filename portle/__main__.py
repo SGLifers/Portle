@@ -14,7 +14,7 @@ def main():
     sub=parser.add_subparsers(dest='command',required=True)
     importer=sub.add_parser('import-assets');importer.add_argument('--source',default=str(ROOT.parent/'PortalAtlas/data/scenes'))
     sub.add_parser('bot');sub.add_parser('doctor')
-    preview=sub.add_parser('preview');preview.add_argument('--port',type=int,default=8742)
+    editor=sub.add_parser('editor');editor.add_argument('--port',type=int,default=8742)
     sample=sub.add_parser('render-sample');sample.add_argument('--stage',type=int,choices=range(1,7),default=4);sample.add_argument('--view',choices=['iso','top'],default='iso')
     args=parser.parse_args()
     from .catalog import Catalog,import_catalog
@@ -23,17 +23,18 @@ def main():
         print(json.dumps(import_catalog(args.source,catalog_path)));return 0
     source=os.getenv('PORTLE_CLUE_SOURCE','manual')
     if source not in ('manual','generated'):parser.exit(2,'PORTLE_CLUE_SOURCE must be manual or generated.\n')
+    if args.command=='editor' and source!='manual':parser.exit(2,'The clue editor requires PORTLE_CLUE_SOURCE=manual.\n')
     from .clues import ClueLibrary
     clues=ClueLibrary(Path(os.getenv('PORTLE_CLUES',str(ROOT/'data/clues')))) if source=='manual' else None
     if source=='manual':catalog=Catalog.names(os.getenv('PORTLE_CATALOG'))
     else:
         if not catalog_path.exists():parser.exit(2,'Import the real portal data first: .venv/bin/python -m portle import-assets\n')
         catalog=Catalog.load(catalog_path)
+    if args.command=='editor':
+        from .editor import serve
+        serve(catalog,clues,args.port);return 0
     from .store import GameStore
     timezone_name=os.getenv('PORTLE_TIMEZONE','UTC')
-    if args.command=='preview':
-        from .preview import serve
-        serve(GameStore(ROOT/'.local/preview.sqlite3',catalog,timezone_name,clues=clues),args.port);return 0
     database=Path(os.getenv('PORTLE_DATABASE',str(ROOT/'data/portle.sqlite3')))
     store=GameStore(database,catalog,timezone_name,clues=clues)
     if args.command=='render-sample':
