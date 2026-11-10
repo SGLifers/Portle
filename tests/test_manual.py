@@ -37,6 +37,18 @@ class ManualTests(ManualFixture,unittest.TestCase):
     def test_names_only_catalog_has_no_game_geometry(self):
         self.assertGreater(len(self.catalog.maps),1)
         self.assertTrue(all('portals' not in m for m in self.catalog.maps))
+    def test_renamed_map_keeps_clues_and_old_daily_answerable(self):
+        self.mid='MAP_Erosion';self.pack()
+        previous=Catalog(tuple(dict(m,name='Erosion',aliases=[]) if m['id']==self.mid else m for m in self.catalog.maps),'previous-name')
+        old=GameStore(self.root/'game.db',previous,clock=lambda:self.now,clues=self.library)
+        state=old.start('u');image=old.image(state)
+        renamed=GameStore(self.root/'game.db',self.catalog,clock=lambda:self.now,clues=self.library)
+        self.assertIn('Dought',self.catalog.choices());self.assertNotIn('Erosion',self.catalog.choices())
+        self.assertEqual(self.catalog.resolve('Dought')['id'],self.catalog.resolve('Erosion')['id'])
+        won=renamed.act(state['id'],'u',0,guess='Dought')
+        self.assertEqual(won['status'],'won');self.assertEqual(won['puzzle'],state['puzzle'])
+        self.assertEqual(renamed.image(state,clue=1),image)
+        second=renamed.start('other');self.assertEqual(renamed.act(second['id'],'other',0,guess='Erosion')['status'],'won')
     def test_empty_library_and_drafts_cannot_be_played(self):
         for i in range(1,6):self.library.upload(self.mid,i,screenshot(i))
         with self.assertRaises(GameError):self.library.publish(self.mid)

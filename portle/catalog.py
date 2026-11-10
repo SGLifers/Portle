@@ -76,6 +76,7 @@ def import_catalog(source,destination):
             portals.append({k:n[k] for k in ('position','normal','right','up','width','height','shape')})
         if len(portals)<6:continue
         name=scene['name'];aliases=[]
+        if scene['id']=='MAP_Erosion':name='Dought';aliases=['Erosion']
         if name=='Ozone Night':aliases=['Ozone']
         if name=='Foregone Destruction':aliases=['Foregone','FD']
         maps.append({'id':scene['id'],'name':name,'aliases':aliases,'portals':portals,

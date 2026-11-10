@@ -799,3 +799,25 @@ Git status revealed an untracked editor swap filename for .env. Did not inspect
 its content. Added standard Vim swap/backup ignore patterns to keep such local
 files out of future commits. Confirm ignore checks and whitespace/secret scan
 before push; no application behavior changed or additional runtime tests needed.
+
+## Rename Erosion to Dought — 2026-11-09
+
+User requested Dought as the display/answer name for Erosion while discussing
+Atlas screenshot automation. Updated bundled map_names.json, preserving
+MAP_Erosion and adding Erosion as an accepted alias. Existing clue library keys,
+images and stored rounds remain intact. Future legacy asset imports also use
+Dought plus the old alias. Historical frozen puzzle names remain as saved; both
+old Erosion and new Dought can solve those old snapshots because the IDs match.
+New roster/editor/dropdown labels and new puzzle snapshots use Dought. Existing
+private generated catalogs/custom answer lists are not rewritten automatically.
+Catalog metadata revision changes, so future puzzle ordering may change; already
+created daily snapshots are preserved. No production database changes were made.
+
+Added a regression covering a frozen Erosion manual daily resumed under the new
+roster: Dought and Erosion both solve it, all clue bytes remain usable and the
+snapshot is unchanged. Full suite passed96 tests in6.022s; whitespace checks
+passed. Atlas name/PNG filename changes are committed in its independent repo.
+Source-only Portle update is pushed to main after redacted secret scanning; the
+host receives it on restart with Bisect Auto Update enabled. No bot starts,
+Discord messages, command syncs, tokens, score resets or hosting actions here.
+Screenshot batch capture was assessed as feasible, not implemented or published.

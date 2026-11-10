@@ -34,8 +34,8 @@
     },
     {
       "id": "MAP_Erosion",
-      "name": "Erosion",
-      "aliases": []
+      "name": "Dought",
+      "aliases": ["Erosion"]
     },
     {
       "id": "MAP_Foregone_Destruction",
