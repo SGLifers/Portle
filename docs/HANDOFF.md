@@ -821,3 +821,52 @@ Source-only Portle update is pushed to main after redacted secret scanning; the
 host receives it on restart with Bisect Auto Update enabled. No bot starts,
 Discord messages, command syncs, tokens, score resets or hosting actions here.
 Screenshot batch capture was assessed as feasible, not implemented or published.
+
+## Portal-only host data package — 2026-11-09
+
+User explicitly requested regenerating Atlas captures with geometry off, portals
+on, labels/lines/all angles/cutaway off and preparing an uploadable bot data
+folder. Atlas now supports geometry/cutaway batch options, default off, and
+completed a fresh25-map/150-PNG batch with those exact flags,1280x800, progressive
+groups and random camera per clue. Seed portle-portals-only-2026-11-09.
+
+Prepared isolated private output, without editing the live local authoring
+library, hosted bot, credentials or score databases:
+/home/lambchopper67/Downloads/Portle-host-data-2026-11-09/data/clues/index.json
+/home/lambchopper67/Downloads/Portle-host-data-2026-11-09/data/clues/images/*.png
+Upload ZIP: /home/lambchopper67/Downloads/Portle-host-data-2026-11-09.zip
+34.42MiB; SHA256 f5277aa3c3c3b3effb735d90321bd56c5bd68b70a536cefa4b48d0d8272bc54a.
+UPLOAD.txt and VALIDATION.json are beside the data folder, outside the upload ZIP.
+All generated files are private/local and outside Git. No application code
+update is required on the host. This is a clue-library update only.
+
+Packaging used the existing ClueLibrary.upload/publish methods in the isolated
+output folder:23 supported map sets/138 new PNGs, including newly captured Abyss
+and Dought. The earlier incorrect Abyss images are not reused. Training and
+HangmanR3 remain outside Portle's23-answer roster and were excluded. Copied all24
+existing local PNGs first under shared library lock; retained them in the export
+for frozen rounds. Total162 image files and one index in ZIP. Original library
+file hashes are unchanged. Published pack IDs are new in the exported index;
+existing daily snapshots remain frozen when the host receives the update.
+
+Reproducible one-off packaging script is ignored .local/package-portal-batch.py;
+run from Portle with PYTHONPATH=. .venv/bin/python .local/package-portal-batch.py.
+It refuses to overwrite the output destination. Raw input is the normal browser
+download at /home/lambchopper67/Downloads/
+portal-atlas-clues-portle-portals-only-2026-11-09.zip (not the earlier geometry ZIP).
+Validation: ZIP CRC passes; decoded all150 raw PNGs at1280x800/no metadata/unique
+hashes; all25 group sets balanced, exclusive, exact coverage and progressive.
+All raw map layer flags match and cutoffHeight null. All138 new images normalized
+through ClueLibrary with opaque hash filenames. Every published/draft reference
+loads and matches. Actual GameStore.start/image/act exercised all six clue stages
+for each of23 maps using temporary practice DBs only. Export ZIP allowlist admits
+only data/clues/index.json and data/clues/images/<64hex>.png; no SQLite, .env,
+coordinates, capture manifests or lock files. All25 Atlas scene hashes unchanged.
+
+Upload procedure: stop hosted bot, back up its data/clues, merge supplied image
+files FIRST (keep ALL older remote images, including ones not available locally),
+then replace data/clues/index.json and restart. Do not delete/replace the whole
+remote data folder or overwrite data/portle.sqlite3. Existing selected daily keeps
+old clues; new practices/future dailies use the new pool. No remote access/upload,
+Discord interactions or GitHub push performed. Local original editor library stays
+at its prior4 published sets; this output is a separate upload snapshot.
