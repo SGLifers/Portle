@@ -1,11 +1,16 @@
 """Discord transport. Importing this module never connects or sends messages."""
 import asyncio
+from contextlib import suppress
+from datetime import datetime
 from io import BytesIO
+import json
 import logging
 import discord
 from discord import app_commands
+from discord.ext import tasks
 
 from .game import GameError,public_view,share_text,revealed_stage
+from .announcements import due_periods,board_embeds
 
 ADMIN_ONLY_MESSAGE='This action is restricted to server administrators. Use /portle play for the daily puzzle.'
 
@@ -250,12 +255,33 @@ class PortleCommands(app_commands.Group):
         text=f"Played **{stats['played']}** · Wins **{stats['wins']}** · Win rate **{stats['winPercent']}%**\nCurrent streak **{stats['currentStreak']}** · Best **{stats['bestStreak']}**\n\n"+'\n'.join(f"{n} guesses: {count}" for n,count in stats['distribution'].items())
         await interaction.edit_original_response(embed=discord.Embed(title='Your Portle stats',description=text,color=0x78E8D1))
 
+    @app_commands.command(description='Admins only: configure daily and weekly leaderboard announcements')
+    @app_commands.check(server_admin_check)
+    @app_commands.describe(channel='Server text channel for recaps; selecting a channel enables them',enabled='Enable or disable automatic recaps; omit both options to check status')
+    async def announcements(self,interaction:discord.Interaction,channel:discord.TextChannel=None,enabled:bool=None):
+        await interaction.response.defer(ephemeral=True,thinking=True)
+        if channel is not None:
+            if channel.guild.id!=interaction.guild_id:raise GameError('Choose a text channel in this server.')
+            if not interaction.guild or not interaction.guild.me:raise GameError('Portle is not ready in this server yet. Try configuring the channel again after it connects.')
+            permissions=channel.permissions_for(interaction.guild.me)
+            if not all((permissions.view_channel,permissions.send_messages,permissions.embed_links)):
+                raise GameError('Allow Portle View Channel, Send Messages and Embed Links in that channel first.')
+        config=await asyncio.to_thread(self.store.announcements.configure,interaction.guild_id,channel.id if channel else None,enabled)
+        if config is None:text='Automatic recaps are off. Choose a channel with `/portle announcements channel:#games`.'
+        else:
+            text=f"Automatic recaps: **{'enabled' if config['enabled'] else 'disabled'}** in <#{config['channel_id']}>.\nDaily: **00:05** · Weekly + all-time: **Monday 00:10** · **{self.store.zone.key}**.\nDaily recaps name only the previous puzzle’s map. New configurations start with the next scheduled post."
+            if config['last_error']:text+='\nLast delivery issue: '+config['last_error']
+            if config['unconfirmed']:text+=f"\n**{config['unconfirmed']} unconfirmed delivery page(s)** are held to avoid duplicates. Check the channel before arranging a replacement."
+        await interaction.edit_original_response(content=text,allowed_mentions=discord.AllowedMentions.none())
+
     @app_commands.command(description='Show daily records for players who joined in this server')
     async def leaderboard(self,interaction:discord.Interaction):
         await interaction.response.defer(ephemeral=True,thinking=True)
         rows=await asyncio.to_thread(self.store.leaderboard,interaction.guild_id)
-        text='\n'.join(f"**{i+1}.** <@{r['user_id']}> · {r['wins']} wins · {r['currentStreak']} streak" for i,r in enumerate(rows)) or 'No finished daily rounds yet. Play with /portle play.'
-        await interaction.edit_original_response(embed=discord.Embed(title='Portle · server players',description=text,color=0x78E8D1),allowed_mentions=discord.AllowedMentions.none())
+        embeds=board_embeds('Portle · server players',rows,footer='Solves, then total clues on successful solves. Equal scores share a rank.')
+        # This private command may exceed one response when a cutoff tie is large.
+        await interaction.edit_original_response(embed=discord.Embed.from_dict(embeds[0]),allowed_mentions=discord.AllowedMentions.none())
+        for embed in embeds[1:]:await interaction.followup.send(embed=discord.Embed.from_dict(embed),ephemeral=True,allowed_mentions=discord.AllowedMentions.none())
 
     @app_commands.command(description='List all map names accepted by the game')
     async def maps(self,interaction:discord.Interaction):
@@ -271,6 +297,7 @@ class PortleCommands(app_commands.Group):
             f'Daily resets at midnight **{self.store.zone.key}**; everyone gets the same map with private progress.\n'
             '`/portle play` daily · `/portle practice` admins only · `/portle guess` guess daily · `/portle maps` answer list · `/portle stats` records.\n'
             'Admins: `/portle reset player` resets that member\'s current daily score and guesses. Earlier days and practice are preserved; daily progress is shared across servers.\n'
+            'Admins: `/portle announcements channel:#games` enables daily recaps at 00:05 and Monday weekly/all-time boards at 00:10 in the configured timezone. Use `enabled:false` to turn them off, or omit options to check delivery status. Closed daily recaps reveal yesterday\'s map.\n'
             'Finishing a daily automatically posts your score and squares in this channel, without the map name or clues. Anyone can use **Play Portle** on a result to open their own private daily. Practice results stay private. Private board controls expire after 15 minutes; public Play buttons survive restarts. Resume the daily with `/portle play`. Server administrators can start fresh practice with `/portle practice`; practice does not affect daily records.',ephemeral=True)
 
     async def on_error(self,interaction,error):
@@ -290,6 +317,7 @@ class PortleClient(discord.Client):
         intents=discord.Intents.none();intents.guilds=True
         super().__init__(intents=intents,allowed_mentions=discord.AllowedMentions.none())
         self.tree=app_commands.CommandTree(self);self.tree.add_command(PortleCommands(store));self.guild_id=guild_id;self.store=store
+        self._announcement_lock=asyncio.Lock()
 
     async def setup_hook(self):
         try:
@@ -314,3 +342,68 @@ class PortleClient(discord.Client):
         logging.getLogger(__name__).info('Portle connected and ready')
         # Bisect's panel recognizes this exact stdout marker after Discord is ready.
         print('successfully finished startup',flush=True)
+        if not self.announcement_loop.is_running():self.announcement_loop.start()
+
+    async def close(self):
+        self.announcement_loop.cancel()
+        task=self.announcement_loop.get_task()
+        if task is not None:
+            with suppress(asyncio.CancelledError):await task
+        await super().close()
+
+    @tasks.loop(seconds=60)
+    async def announcement_loop(self):
+        if not self.is_ready():return
+        try:await self.send_due_announcements()
+        except Exception as error:logging.getLogger(__name__).error('Scheduled recap cycle failed: %s',type(error).__name__)
+
+    @announcement_loop.before_loop
+    async def before_announcements(self):await self.wait_until_ready()
+
+    async def send_due_announcements(self):
+        manager=self.store.announcements
+        async with self._announcement_lock:
+            configs=await asyncio.to_thread(manager.enabled)
+            for config in configs:
+                try:await self._send_server_announcements(config)
+                except Exception as error:
+                    detail=f'Recap preparation failed: {type(error).__name__}'
+                    await asyncio.to_thread(manager.note_error,config['guild_id'],detail)
+                    logging.getLogger(__name__).warning(detail)
+
+    async def _send_server_announcements(self,config):
+        manager=self.store.announcements;now=self.store.clock().astimezone(self.store.zone)
+        for kind,end,scheduled in due_periods(now):
+            if scheduled>=datetime.fromisoformat(config['enabled_at']):await asyncio.to_thread(manager.prepare,config,kind,end)
+        for batch in await asyncio.to_thread(manager.queued,config):
+            pages=await asyncio.to_thread(manager.pages,batch)
+            # Stop at an unconfirmed page rather than skipping it or resending it.
+            first=next((page for page in pages if page['status']!='sent'),None)
+            if first is None or first['status']!='ready' or first['retry_after']>self.store.clock().timestamp():continue
+            try:
+                channel=self.get_channel(int(batch['channel_id'])) or await self.fetch_channel(int(batch['channel_id']))
+                if getattr(getattr(channel,'guild',None),'id',None)!=int(config['guild_id']):raise GameError('Announcement channel is not in this server.')
+            except (discord.HTTPException,OSError,GameError) as error:
+                reason=str(error) if isinstance(error,GameError) else f'{type(error).__name__} (HTTP {getattr(error,"status","n/a")}, Discord code {getattr(error,"code","n/a")})'
+                detail='Channel access failed: '+reason
+                await asyncio.to_thread(manager.note_error,config['guild_id'],detail)
+                if config['last_error']!=detail:logging.getLogger(__name__).warning('Recap channel access failed for server %s: %s',config['guild_id'],reason)
+                continue
+            payload=json.loads(batch['payload'])
+            for page in pages:
+                if page['status']=='sent':continue
+                if page['status']!='ready' or not await asyncio.to_thread(manager.claim,batch,page['page']):break
+                try:
+                    message=await channel.send(embeds=[discord.Embed.from_dict(embed) for embed in payload[page['page']]],
+                        view=PlayPortleView(self.store),allowed_mentions=discord.AllowedMentions.none(),nonce=manager.nonce(batch,page['page']))
+                except (discord.HTTPException,OSError) as error:
+                    detail=f'{type(error).__name__} (HTTP {getattr(error,"status","n/a")}, Discord code {getattr(error,"code","n/a")})'
+                    retry=isinstance(error,discord.HTTPException) and error.status in (403,404,429)
+                    await asyncio.to_thread(manager.finish,batch,page['page'],error=detail,retry=retry)
+                    logging.getLogger(__name__).warning('Scheduled recap post failed for server %s: %s%s',config['guild_id'],detail,'; will retry' if retry else '; delivery held to avoid duplicates')
+                    break
+                except Exception as error:
+                    await asyncio.to_thread(manager.finish,batch,page['page'],error=type(error).__name__)
+                    logging.getLogger(__name__).warning('Scheduled recap post unconfirmed: %s',type(error).__name__)
+                    break
+                await asyncio.to_thread(manager.finish,batch,page['page'],message_id=message.id)

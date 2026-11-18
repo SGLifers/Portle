@@ -31,6 +31,8 @@ class GameStore:
             ''')
             db.execute('INSERT OR IGNORE INTO settings VALUES (?,?)',('seed',secrets.token_hex(32)))
         self.path.chmod(0o600)
+        from .announcements import AnnouncementStore
+        self.announcements=AnnouncementStore(self)
 
     @contextmanager
     def connection(self):
@@ -179,6 +181,4 @@ class GameStore:
         return {'played':len(finished),'wins':len(wins),'winPercent':round(100*len(wins)/len(finished)) if finished else 0,'currentStreak':current,'bestStreak':best,'distribution':distribution}
 
     def leaderboard(self,guild_id):
-        with self.connection() as db:users=[r['user_id'] for r in db.execute('SELECT user_id FROM participants WHERE guild_id=?',(str(guild_id),))]
-        scores=[{'user_id':user,**self.stats(user)} for user in users]
-        return sorted((s for s in scores if s['played']),key=lambda s:(-s['wins'],-s['currentStreak'],s['user_id']))[:10]
+        return self.announcements.standings(guild_id)['rows']

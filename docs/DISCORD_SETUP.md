@@ -91,6 +91,11 @@ public/private component buttons do not yet enforce a separate channel allowlist
 All servers share the daily puzzle, configured reset timezone and per-player
 progress/statistics. A player can resume the same daily in another server.
 Leaderboards include only players who joined gameplay in the current server.
+Server administrators can enable scheduled daily results and Monday weekly plus
+all-time standings with `/portle announcements channel:#games`; omit options for
+private status or use `enabled:false` to disable. The closed daily recap reveals
+yesterday's frozen map; individual completion posts and weekly boards do not.
+See [schedules, ties and delivery recovery](ANNOUNCEMENTS.md).
 Admin reset affects the selected member's shared daily across servers. Keep the
 bot token, SQLite files and local authoring editor private; inviting another
 server requires none of those files or credentials.

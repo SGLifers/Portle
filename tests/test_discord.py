@@ -34,7 +34,7 @@ class DiscordTests(unittest.IsolatedAsyncioTestCase):
     async def asyncTearDown(self):self.temp.cleanup()
     async def test_command_schema_and_no_privileged_intents(self):
         client=PortleClient(self.store);schema=client.tree.get_commands()[0].to_dict(client.tree)
-        self.assertEqual(schema['name'],'portle');self.assertEqual(len(schema['options']),8)
+        self.assertEqual(schema['name'],'portle');self.assertEqual(len(schema['options']),9)
         self.assertNotIn('share',[c['name'] for c in schema['options']])
         reset=next(c for c in schema['options'] if c['name']=='reset')
         self.assertEqual(reset['options'][0]['name'],'player');self.assertEqual(reset['options'][0]['type'],6)

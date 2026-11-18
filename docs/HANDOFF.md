@@ -972,3 +972,70 @@ hosted data/portle.sqlite3 and .env credentials. User intentionally discards old
 images: existing frozen daily/practice rounds may fail to show their old clues;
 new index does not reset stored puzzles or scores. New practice/future daily use
 new29-map pool. No remote file deletion/upload or live bot operations performed.
+
+## Scheduled daily / weekly / all-time recaps — 2026-11-17
+
+User approved message formats and explicitly requested implementation. Daily
+recap reveals only previous closed day's frozen map name, ranked solves, solve
+rate and persistent Play Portle button. Removed promotional lines stay absent.
+Monday post combines previous Mon–Sun standings with all-time through that Sunday.
+Both are server-participant scoped; practice/other clue-source namespaces excluded.
+Times are00:05 daily / Monday00:10 in existing PORTLE_TIMEZONE, checked each minute.
+No external scheduler, new dependency or privileged intent. User messages are
+suppressed with AllowedMentions.none. Public individual completion posts remain
+spoiler-free; AGENTS.md now records the explicit closed-day recap exception.
+
+New portle/announcements.py implements dates, scores, competition ranks1/1/3,
+cutoff ties, escaped previous-day answer and bounded continuation embeds/messages.
+Daily: fewest clues on successful solves. Weekly/all-time: most wins, then fewest
+total clues on wins; exact equal totals share rank, not rounded averages. If two
+different exact totals round to identical displayed averages, show totals too.
+Zero-attempt opens are not participation; attempted unfinished closed rounds are
+unsolved in denominator. No-participant daily skipped. Quiet weeks still show
+all-time when history exists. Live /portle leaderboard uses same rank rules,
+including current-day solves; personal stats/streaks unchanged.
+
+GameStore adds AnnouncementStore with additive SQLite tables: announcement_config
+(server/channel/enabled/enable-time/last error), announcement_batches (namespaced
+closed-period frozen message payloads), announcement_pages (atomic per-page send
+reservations/status/nonce identity/IDs). Existing player/puzzle data untouched.
+First enable/re-enable/channel change begins at next due time. Restart catches
+latest eligible daily/weekly only, no old backlog. Snapshots remain fixed. Page
+claim rechecks enabled channel and most recent closed period, even after clock
+rollover during channel lookup. Two-worker SQLite claims prevent concurrent posts.
+
+New admin-only /portle announcements channel:#games configures one normal server
+text channel. Optional enabled:false disables, enabled:true resumes; no options
+reports private status, schedule, safe last error, unconfirmed pages. Checks
+same-server channel and bot View/Send/Embed permissions. Settings persist per guild;
+default is off, no arbitrary channel guessed. Runtime Administrator check, global
+Guild Install registration and existing command permission overrides preserved.
+
+PortleClient starts one guarded tasks.loop on ready, waits for ready, skips gateway
+disconnects, cancels/awaits task on close. All SQLite/aggregation is off event loop.
+Persistent PlayPortleView reuses existing restart-safe button handler. Stable nonce
+per page uses SDK2.7.1's enforce_nonce behavior (verified installed http.py and
+official Discord Create Message docs). Definite403/404/429 rejection retries after
+5min while current; pre-send channel failure remains safe to retry. Ambiguous
+network/HTTP errors or crash between HTTP send and DB confirmation retain an
+unconfirmed reservation and hold later pages rather than automatically resending.
+Status exposes these for manual channel review. Another server's posts continue.
+Never claim exactly-once network delivery; Discord nonce uniqueness is recent-only.
+
+Validation: final full121 tests passed in6.267s after the finish-idempotency
+guard/test; targeted25 announcement tests also passed. New cases: exact ties/top10 boundary ties/1000 tied
+players under UTF16 embed limits, frozen names after roster rename, reset audits,
+namespace/server filtering, Sunday/current-day cutoffs, DST, skipped periods,
+restart/catch-up/disabled/reconfigured schedules, concurrent prepare/claim/two bot
+workers, partial continuation delivery, permission recovery with same nonce,
+uncertain/crashed sends, task lifecycle, admin checks/status and paginated private
+standings. Stale finish callbacks do not change confirmed delivery records or
+diagnostics. Docs: docs/ANNOUNCEMENTS.md, README, Discord/Bisect guides.
+
+No production SQLite/library/.env read or migration during development; only temp
+test DBs. No local/hosted bot login, command sync or live messages. Atlas/installed
+game/host workers untouched. Existing origin verified github.com/SGLifers/Portle.git,
+branch codex/portle. Next: final test/diff checks, redacted credential scan of
+tracked/new files, commit milestone, inspect origin divergence and push the source
+update under existing user GitHub authorization. Host must update/restart and an
+admin select channel; no hosting configuration or channel was set automatically.

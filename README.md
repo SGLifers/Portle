@@ -37,6 +37,8 @@ selection, image rotation or enforced portal-count progression.
 - A correct guess or six misses ends the round and unlocks all screenshots.
 - Unlimited admin practice in Discord, daily stats/streaks and guild participant leaderboards.
 - Daily results post automatically with a Play Portle button; guesses and clue boards stay private.
+- Optional server announcements: yesterday's map/results daily, plus weekly and
+  all-time standings together each Monday, with shared ranks for ties.
 
 The bundled answer roster contains 23 maps. Only published maps enter the puzzle
 rotation, but the full roster remains available for guessing. One ready set is
@@ -80,7 +82,16 @@ server administrators do not need the bot token or access to the editor.
 | `/portle maps` | List accepted answers |
 | `/portle stats` | Daily results and guess distribution |
 | `/portle leaderboard` | Overall daily records of this guild's participants |
+| `/portle announcements channel:#games` | Administrators only: enable scheduled recaps in this server |
 | `/portle help` | Explain the rules |
+
+After updating/restarting the hosted bot, an administrator can enable recaps with
+`/portle announcements channel:#games`. Daily posts run at **00:05** and Monday's
+weekly/all-time post at **00:10**, using `PORTLE_TIMEZONE`. Omit options to check
+status; use `enabled:false` to disable. Settings and delivery records are saved in
+the existing SQLite database. New configurations begin with the next scheduled
+post. See [scheduled announcements](docs/ANNOUNCEMENTS.md) for scoring, ties,
+closed-period map reveals, catch-up and delivery recovery behavior.
 
 The board's alphabetical map dropdown works in daily and practice. Selecting a
 map immediately submits that guess. Already-guessed maps are removed from the

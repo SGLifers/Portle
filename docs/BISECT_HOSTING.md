@@ -138,6 +138,13 @@ of the SQLite snapshot and complete clue library, alongside provider backups.
 
 ## Later clue updates
 
+For scheduled leaderboards, update the code and restart, then configure each
+server with `/portle announcements channel:#games`. Daily posts run at00:05;
+Monday weekly/all-time boards at00:10, using the existing `PORTLE_TIMEZONE`.
+The schedule runs inside the bot process; no Bisect cron service is required.
+Configuration and delivery records are added to the existing SQLite file, so
+preserve it during deployments. See [announcement setup](ANNOUNCEMENTS.md).
+
 Continue using the local editor to capture/publish clues. Transfer new PNGs first,
 then replace the remote `data/clues/index.json` only after all referenced files
 have arrived. Preserve all older remote PNGs. Do not replace the hosted player
