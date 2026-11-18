@@ -145,6 +145,23 @@ database with the old local database when updating clues: live scores now belong
 to the hosted copy. Code updates must also preserve `.env` and the entire `data/`
 directory. Start with manual file updates until a dedicated sync workflow exists.
 
+### Replacement library with additional map names
+
+A prepared replacement package may include `data/map_names.json` alongside
+`data/clues/`. To enable answers beyond the bundled roster, set this in `.env`
+or the panel environment, then restart:
+
+```dotenv
+PORTLE_CATALOG=data/map_names.json
+```
+
+The names list and clue index must use matching map IDs. This works with existing
+manual-mode bot code; answer dropdowns automatically paginate beyond 25 maps.
+For an explicitly requested new-clues-only replacement, back up and replace the
+clue folder rather than merging old images. Removing old PNGs can break frozen
+daily/practice snapshots that still reference them; replacing the index does not
+reset those snapshots or scores. Keep the hosted SQLite file and credentials.
+
 ## References
 
 - [Bisect Python/pip startup guide](https://help.bisecthosting.com/hc/en-us/articles/40086898596379-How-to-Install-a-Custom-Discord-Bot-with-the-Pip-Installer)

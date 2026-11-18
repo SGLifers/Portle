@@ -918,3 +918,57 @@ data/portle.sqlite3 and .env; no bot code update required. Existing selected dai
 keeps its frozen screenshots; future dailies/new practices use progressive sets.
 No live local/remote bot, Discord, GitHub push, game or SplitgateHost operations.
 Handoff/docs changes committed locally; Atlas code has its own independent commits.
+
+## Current-clues-only package including takedown — 2026-11-17
+
+User explicitly clarified to discard historical images and keep only new clues
+in data/clues/index.json. Previous index already referenced only138 current clues;
+the prior58.17MiB ZIP had162 extra historical PNGs. Created a23-map new-only ZIP at
+/home/lambchopper67/Downloads/Portle-host-data-new-only-2026-11-17.zip (23.75MiB),
+then superseded it with a combined29-map package after capturing Simulation maps.
+Do not repeat the previous keep-all-old-images instructions for this user's
+intentional replacement package. Original libraries/backups were not deleted.
+
+Atlas extracted MAP_Simulation and compiled6 roots separately, then captured36
+new progressive PNGs: Simulation Anomaly39 walls, Charlie36, Divide30, Faceoff50,
+Hectic72, Moshpit57. Each first clue4; cumulative nested additions/final full map;
+same portal-only settings/1280x800/random camera per clue. Raw capture is ignored
+../PortalAtlas/.local/captures/capture-514d991796d94ee78fc6670df0baa842.zip. All6 maps
+have validated geometry extraction and independent source roots. No installed game
+or existing arena scene writes. Atlas60 Python tests pass; no browser errors.
+
+Final user-facing artifacts, all private/outside Git:
+/home/lambchopper67/Downloads/Portle-host-data-29-maps-new-only-2026-11-17.zip
+(29.88MiB, SHA256 0018ff3f85ecc68ade932cc7c1f8ca44b4b99157973f3685b0f63c58b168e1d3)
+/home/lambchopper67/Downloads/Portle-host-data-29-maps-new-only-2026-11-17/data/
+/home/lambchopper67/Downloads/Portle-screenshots-29-maps-2026-11-17.zip (29.85MiB)
+Named screenshots/UPLOAD.txt/VALIDATION.json are beside data in the export folder.
+Upload ZIP contains176 files:174 hashed PNGs + index.json + data/map_names.json.
+Index drafts/published sets cover only current29 maps/174 current images;0 orphan
+or historical images. No overlap with old Nov9 image hashes. No database, token,
+raw coordinates, source geometry, archive manifest or lock file in upload ZIP.
+
+The bundled default Portle roster in Git remains23 maps. The package supplies a
+29-map names-only catalog containing all existing IDs/aliases plus six stable
+MAP_Simulation_<Name> IDs. Set PORTLE_CATALOG=data/map_names.json on the host
+(.env or panel environment; panel takes precedence), and upload this file with
+data/clues. Existing code supports it; no bot code update/GitHub push required.
+Same override can be used for local clue editor authoring later. No .env changed.
+
+Packaging command, from Portle:
+PYTHONPATH=. .venv/bin/python .local/package-takedown-new-only-2026-11-17.py
+Ignored one-off script refuses overwrite. Starts isolated library from previous
+current23-map index but copies only its138 referenced PNGs, then uploads/publishes
+36 real Simulation captures through ClueLibrary. All source libraries preserved.
+Validation:6-map raw ZIP CRC/decoded PNG/layers/count/exclusive coverage/prefix
+checks;29 published/draft sets reference exactly174 valid immutable PNGs;both ZIP
+CRC/path allowlists pass. Actual GameStore.start/image/act traverses six stages
+for each29 maps using temporary practice scores only. RoundView against complete
+custom catalog verifies2 pages25+4 options, all29 names available. No Discord login.
+
+Upload: stop hosted bot and back up clues; replace data/clues with supplied
+new-only folder, add data/map_names.json, set catalog override, restart. Preserve
+hosted data/portle.sqlite3 and .env credentials. User intentionally discards old
+images: existing frozen daily/practice rounds may fail to show their old clues;
+new index does not reset stored puzzles or scores. New practice/future daily use
+new29-map pool. No remote file deletion/upload or live bot operations performed.
