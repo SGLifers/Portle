@@ -1039,3 +1039,27 @@ branch codex/portle. Next: final test/diff checks, redacted credential scan of
 tracked/new files, commit milestone, inspect origin divergence and push the source
 update under existing user GitHub authorization. Host must update/restart and an
 admin select channel; no hosting configuration or channel was set automatically.
+
+### Announcement rollout — final verification, 2026-11-17
+
+Feature committed as afe0c05, Add scheduled daily and weekly leaderboards with
+shared ranks. Full121 tests passed in6.267s; whitespace and compile checks passed.
+Credential audit of36 tracked files found no Discord/GitHub/cloud credential,
+private-key or literal server-setting patterns; only .env.example/data/.gitkeep
+are tracked among private-config/data paths. Audited all4 outgoing commits and47
+unique blobs too: no credential patterns or private runtime files. Existing
+origin/main had0 ahead/3 local doc commits before this feature; no upstream changes
+or merge conflicts. git push origin HEAD:main succeeded, advancing main from
+1ef6bb4 to afe0c05; local origin/main matched. Only source/docs/tests published.
+
+User activation: update/restart hosted bot (Bisect Git Auto Update if enabled),
+wait for readiness/command sync, then a server Administrator runs
+/portle announcements channel:#games in each target server. Omit options to see
+timezone/delivery status, enabled:false to disable. New config posts starting at
+the next due00:05 daily / Monday00:10 weekly, using current PORTLE_TIMEZONE; no
+automatic channel choice or immediate historical post. SQLite migrations happen
+on hosted startup and retain player data. Keep the existing database/clues/.env.
+No remote host restart, live command execution, token access or messages occurred
+here. All tests use isolated temporary stores and mocked Discord sends. Atlas and
+the user-authored new-only29-map clue package are unchanged by this feature.
+No required implementation work remains; handoff is ready for host verification.
