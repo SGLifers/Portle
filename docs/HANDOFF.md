@@ -870,3 +870,51 @@ remote data folder or overwrite data/portle.sqlite3. Existing selected daily kee
 old clues; new practices/future dailies use the new pool. No remote access/upload,
 Discord interactions or GitHub push performed. Local original editor library stays
 at its prior4 published sets; this output is a separate upload snapshot.
+
+## Progressive four-portal-first host package — 2026-11-17
+
+User requested progressively larger portal additions instead of even six groups,
+minimum4 portals first, and screenshot files for the host. Updated Atlas batch
+planning in its independent repo; default growing sizes reproduce the user's
+50-wall example4/5/7/9/11/14, cumulative4/9/16/25/36/50. Seed
+portle-progressive-2026-11-17,1280x800, random angle per clue; only portals on,
+geometry/labels/lines/all angles/cutaway off. First all25-map run completed but
+browser download failed to reach disk. Added normal Atlas Save ZIP locally,
+repeated deterministic run, saved150 images successfully and copied raw ZIP to
+/home/lambchopper67/Downloads/portal-atlas-clues-portle-progressive-2026-11-17.zip.
+
+Final private outputs (all outside Git):
+/home/lambchopper67/Downloads/Portle-host-data-2026-11-17/data/clues/
+/home/lambchopper67/Downloads/Portle-host-data-2026-11-17.zip (58.17MiB)
+/home/lambchopper67/Downloads/Portle-host-data-2026-11-17/screenshots/<Map>/clue-01.png..06.png
+/home/lambchopper67/Downloads/Portle-progressive-screenshots-2026-11-17.zip
+UPLOAD.txt and VALIDATION.json beside data include instructions/per-map counts.
+Host ZIP SHA256 a3ac1852aaeefb69ebab2ea673bc690afa2b043ee209fd1e14718fca45e6ad5d.
+Raw ZIP SHA256 dcf150998985d50b05566e39a6e7bbf7735785cb8acfcbb215307c9689000d72.
+
+One-off ignored script .local/package-progressive-batch-2026-11-17.py was run from
+Portle with PYTHONPATH=. .venv/bin/python .local/package-progressive-batch-2026-11-17.py.
+Refuses overwrite; all captured images processed through existing ClueLibrary.
+Published all23 roster maps with138 new clues into isolated output. Excluded
+Training/HangmanR3. Retained all162 immutable images from previous delivered Nov9
+library (includes24 local older originals), giving300 PNGs plus index.json only
+in host ZIP. Named review ZIP contains only138 new PNGs in23 display-name folders.
+Neither local authoring library (still4 published sets) nor prior export changed.
+
+Validation passed: raw CRC/150 decoded PNGs/no metadata/unique hashes/exact layers;
+first4, nondecreasing additions for all23 supported maps; exact exclusive portal
+coverage and cumulative prefix sets; last clue all portals. Every draft/published
+image reference verified. Actual GameStore.start/image/act traversed six clues for
+each23 maps against temporary practice DBs only. Host ZIP CRC/path allowlist passed;
+no credentials, SQLite, IDs of players/servers, raw coordinates, manifests or lock
+files in upload. Source library hashes are in ignored
+.local/progressive-source-library-hashes-2026-11-17.json and match after packaging.
+All25 Atlas source scene hashes unchanged. Atlas18 Node and57 Python tests passed.
+
+Upload host-ready ZIP at server root while bot stopped after backing up clues;
+merge data/clues/images FIRST, keep ALL older remote PNGs (some may be unknown
+locally), replace data/clues/index.json last, then restart. Preserve hosted
+data/portle.sqlite3 and .env; no bot code update required. Existing selected daily
+keeps its frozen screenshots; future dailies/new practices use progressive sets.
+No live local/remote bot, Discord, GitHub push, game or SplitgateHost operations.
+Handoff/docs changes committed locally; Atlas code has its own independent commits.
