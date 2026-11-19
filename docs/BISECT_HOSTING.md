@@ -110,6 +110,15 @@ installed servers. Default relative data locations already match the layout
 above; omit local-machine PORTLE_DATABASE/PORTLE_CLUES/PORTLE_CATALOG overrides.
 Panel environment variables take precedence over `.env`.
 
+Shared-score resets are disabled by default. To let administrators in trusted
+servers use `/portle reset`, set `PORTLE_RESET_GUILD_IDS` to their comma-separated
+server IDs in the hosted `.env` or panel environment, then restart. Use **Copy
+Server ID** on each trusted server with Discord Developer Mode enabled. Keep
+real IDs private. Empty/unset disables resets everywhere; invalid values stop
+startup. This does not limit gameplay or announcements in other servers and does
+not require setting `DISCORD_GUILD_ID`. The invoking user must still be an
+Administrator. Existing scores and screenshots are preserved.
+
 Keep Public Bot enabled for multi-server installation. Portle does not need
 privileged intents or Administrator permission for the bot. Keep the existing
 server/channel permissions and Discord Interactions Endpoint URL unchanged;

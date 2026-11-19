@@ -204,11 +204,12 @@ class RoundView(discord.ui.View):
 
 
 class PortleCommands(app_commands.Group):
-    def __init__(self,store):
+    def __init__(self,store,reset_guild_ids=()):
         super().__init__(name='portle',description='Guess the arena from its portal placements',guild_only=True,
             allowed_installs=app_commands.AppInstallationType(guild=True,user=False),
             allowed_contexts=app_commands.AppCommandContext(guild=True,dm_channel=False,private_channel=False))
         self.store=store
+        self.reset_guild_ids=frozenset(reset_guild_ids)
 
     @app_commands.command(description='Play or resume your private daily map puzzle')
     async def play(self,interaction:discord.Interaction):
@@ -223,10 +224,13 @@ class PortleCommands(app_commands.Group):
         state=await asyncio.to_thread(self.store.start,interaction.user.id,'practice',interaction.guild_id)
         await show_round(interaction,self.store,state)
 
-    @app_commands.command(description='Admins only: reset a member\'s current daily score and guesses across servers')
+    @app_commands.command(description='Allowlisted server admins: reset a member\'s shared daily score and guesses')
     @app_commands.check(server_admin_check)
     @app_commands.describe(player='Server member whose current daily round will be reset')
     async def reset(self,interaction:discord.Interaction,player:discord.Member):
+        server_admin_check(interaction)
+        if interaction.guild_id not in self.reset_guild_ids:
+            raise GameError('Daily resets are disabled in this server. The bot operator must allowlist this server before administrators can use /portle reset.')
         await interaction.response.defer(ephemeral=True,thinking=True)
         result=await asyncio.to_thread(self.store.reset_daily,player.id,actor_id=interaction.user.id,guild_id=interaction.guild_id,event_id=interaction.id)
         if result['changed']:
@@ -296,7 +300,7 @@ class PortleCommands(app_commands.Group):
             +
             f'Daily resets at midnight **{self.store.zone.key}**; everyone gets the same map with private progress.\n'
             '`/portle play` daily · `/portle practice` admins only · `/portle guess` guess daily · `/portle maps` answer list · `/portle stats` records.\n'
-            'Admins: `/portle reset player` resets that member\'s current daily score and guesses. Earlier days and practice are preserved; daily progress is shared across servers.\n'
+            'Admins in operator-allowlisted servers: `/portle reset player` resets that member\'s current daily score and guesses. Earlier days and practice are preserved; daily progress is shared across servers.\n'
             'Admins: `/portle announcements channel:#games` enables daily recaps at 00:05 and Monday weekly/all-time boards at 00:10 in the configured timezone. Use `enabled:false` to turn them off, or omit options to check delivery status. Closed daily recaps reveal yesterday\'s map.\n'
             'Finishing a daily automatically posts your score and squares in this channel, without the map name or clues. Anyone can use **Play Portle** on a result to open their own private daily. Practice results stay private. Private board controls expire after 15 minutes; public Play buttons survive restarts. Resume the daily with `/portle play`. Server administrators can start fresh practice with `/portle practice`; practice does not affect daily records.',ephemeral=True)
 
@@ -313,10 +317,10 @@ class DiscordSetupError(RuntimeError):
 
 
 class PortleClient(discord.Client):
-    def __init__(self,store,guild_id=None):
+    def __init__(self,store,guild_id=None,*,reset_guild_ids=()):
         intents=discord.Intents.none();intents.guilds=True
         super().__init__(intents=intents,allowed_mentions=discord.AllowedMentions.none())
-        self.tree=app_commands.CommandTree(self);self.tree.add_command(PortleCommands(store));self.guild_id=guild_id;self.store=store
+        self.tree=app_commands.CommandTree(self);self.tree.add_command(PortleCommands(store,reset_guild_ids));self.guild_id=guild_id;self.store=store
         self._announcement_lock=asyncio.Lock()
 
     async def setup_hook(self):

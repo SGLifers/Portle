@@ -96,7 +96,7 @@ all-time standings with `/portle announcements channel:#games`; omit options for
 private status or use `enabled:false` to disable. The closed daily recap reveals
 yesterday's frozen map; individual completion posts and weekly boards do not.
 See [schedules, ties and delivery recovery](ANNOUNCEMENTS.md).
-Admin reset affects the selected member's shared daily across servers. Keep the
+Admin reset is limited to operator-allowlisted servers and affects the selected member's shared daily across servers. Keep the
 bot token, SQLite files and local authoring editor private; inviting another
 server requires none of those files or credentials.
 
@@ -143,7 +143,7 @@ restriction does not require granting the bot Administrator. Discord may still
 show the practice subcommand to members; the bot enforces permission before
 creating a round.
 
-Administrators can also run `/portle reset player:@member` to clear that member's
+Administrators in operator-allowlisted servers can also run `/portle reset player:@member` to clear that member's
 current daily score and guesses. It uses the configured local daily date, preserves
 earlier days and practice, and reuses today's frozen puzzle. Stats/leaderboards
 update immediately. The member reopens with Play Portle or `/portle play`; old
@@ -152,6 +152,24 @@ ping the member. Previously posted results remain visible. Because daily progres
 is shared across this bot's servers, the reset applies to that member's current
 daily everywhere. The private database keeps an audit and previous state. This
 command requires the invoking member's Administrator permission, not elevated bot access.
+
+To enable resets, the bot operator sets `PORTLE_RESET_GUILD_IDS` in the hosted
+`.env` or panel environment to a comma-separated list of trusted server IDs, then
+restarts the bot. With Discord Developer Mode enabled, right-click each trusted
+server icon and choose **Copy Server ID**. Use server IDs, not channel/user IDs.
+Keep real IDs in private settings, never source control. Leave the setting blank
+to disable resets everywhere. Invalid entries stop bot/doctor startup with a
+configuration error. The offline doctor reports the count without printing IDs.
+Panel environment variables override `.env`; update or clear an existing panel
+value when changing the allowlist. Removing a server and restarting revokes its
+reset access. No reinstall or database migration is required.
+
+This operator-managed allowlist is independent of `DISCORD_GUILD_ID`; leave that
+blank for normal multi-server command registration. Other servers can continue
+playing, practicing and configuring announcements. Discord may still display
+the reset subcommand there, but the bot denies it privately before changing any
+scores. Server administrators cannot grant themselves reset access through
+Discord command permission overrides.
 
 Automatic result delivery is reserved in SQLite before sending to prevent duplicate
 posts from concurrent/replayed interactions or restarts. A failed or uncertain send

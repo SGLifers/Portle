@@ -15,6 +15,7 @@ from portle.bot import DiscordSetupError,MapGuessSelect,PlayPortleView,PortleCli
 from portle.catalog import Catalog
 from portle.store import GameStore
 from portle.clues import ClueLibrary
+from portle.game import GameError
 from helpers import fixture_catalog
 
 
@@ -69,7 +70,7 @@ class DiscordTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(event.response.flags['ephemeral']);self.assertIsNone(group.default_permissions)
         await client.close()
     async def test_reset_command_denies_members_moderators_and_dm_before_mutation(self):
-        client=PortleClient(self.store);group=client.tree.get_command('portle');command=group.get_command('reset')
+        client=PortleClient(self.store,reset_guild_ids={22});group=client.tree.get_command('portle');command=group.get_command('reset')
         events=[interaction(),interaction(),interaction(administrator=True)]
         events[1].permissions=discord.Permissions(manage_guild=True);events[2].guild_id=None
         for event in events:
@@ -82,7 +83,7 @@ class DiscordTests(unittest.IsolatedAsyncioTestCase):
     async def test_admin_reset_targets_member_privately_and_old_board_cannot_be_used(self):
         target=self.store.start('99');target=self.store.act(target['id'],'99',0,guess=target['puzzle']['map']['name'])
         old=RoundView(self.store,target)
-        client=PortleClient(self.store);group=client.tree.get_command('portle');command=group.get_command('reset')
+        client=PortleClient(self.store,reset_guild_ids={22,33});group=client.tree.get_command('portle');command=group.get_command('reset')
         event=interaction(administrator=True);self.assertTrue(await command._check_can_run(event))
         await command.callback(group,event,SimpleNamespace(id=99))
         self.assertEqual(event.response.flags,{'ephemeral':True,'thinking':True})
@@ -96,11 +97,43 @@ class DiscordTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(await RoundView(self.store,fresh).interaction_check(interaction('99')))
         self.assertEqual(self.store.start('11')['id'],self.state['id']);await client.close()
     async def test_admin_reset_of_unplayed_member_is_noop_with_private_feedback(self):
-        client=PortleClient(self.store);group=client.tree.get_command('portle');event=interaction(administrator=True)
+        client=PortleClient(self.store,reset_guild_ids={22});group=client.tree.get_command('portle');event=interaction(administrator=True)
         await group.reset.callback(group,event,SimpleNamespace(id=99))
         self.assertIn('no daily score or guesses',event.edit_original_response.call_args.kwargs['content'])
         self.assertTrue(event.response.flags['ephemeral']);event.channel.send.assert_not_awaited()
         with self.store.connection() as db:self.assertEqual(db.execute('SELECT count(*) FROM rounds WHERE user_id=?',('99',)).fetchone()[0],0)
+        await client.close()
+    async def test_reset_denies_admins_outside_allowlist_without_changing_shared_scores(self):
+        target=self.store.start('99');target=self.store.act(target['id'],'99',0,guess=target['puzzle']['map']['name'])
+        for allowlist in [(),{33}]:
+            for deferred in [False,True]:
+                client=PortleClient(self.store,reset_guild_ids=allowlist);group=client.tree.get_command('portle')
+                event=interaction(administrator=True)
+                if deferred:await event.response.defer(ephemeral=True)
+                with patch.object(self.store,'reset_daily',wraps=self.store.reset_daily) as reset:
+                    with self.assertRaises(GameError) as caught:await group.reset.callback(group,event,SimpleNamespace(id=99))
+                    await group.on_error(event,app_commands.CommandInvokeError(group.reset,caught.exception))
+                    reset.assert_not_called()
+                send=event.followup.send if deferred else event.response.send_message
+                self.assertIn('disabled in this server',send.call_args.args[0]);self.assertTrue(send.call_args.kwargs['ephemeral'])
+                self.assertEqual(send.call_args.kwargs['allowed_mentions'].to_dict()['parse'],[])
+                event.channel.send.assert_not_awaited();event.edit_original_response.assert_not_awaited()
+                self.assertEqual(self.store.get(target['id'],'99'),target)
+                with self.store.connection() as db:self.assertEqual(db.execute('SELECT count(*) FROM daily_resets').fetchone()[0],0)
+                # A reset restriction must not prevent normal play or other admin tools.
+                await group.practice.callback(group,event)
+                self.assertEqual(event.edit_original_response.call_args.kwargs['view'].mode,'practice')
+                await group.play.callback(group,event)
+                self.assertEqual(event.edit_original_response.call_args.kwargs['view'].mode,'daily')
+                await client.close()
+    async def test_reset_callback_rechecks_administrator_in_allowlisted_server(self):
+        client=PortleClient(self.store,reset_guild_ids={22});group=client.tree.get_command('portle')
+        for event in [interaction(),interaction(administrator=True)]:
+            if event.permissions.administrator:event.guild_id=None
+            with patch.object(self.store,'reset_daily') as reset:
+                with self.assertRaises(app_commands.MissingPermissions):await group.reset.callback(group,event,SimpleNamespace(id=99))
+                reset.assert_not_called()
+            self.assertIsNone(event.response.flags)
         await client.close()
     async def test_practice_requires_a_server_and_rechecks_permission_on_existing_boards(self):
         client=PortleClient(self.store);practice=client.tree.get_command('portle').get_command('practice')
@@ -169,12 +202,13 @@ class DiscordTests(unittest.IsolatedAsyncioTestCase):
         from io import StringIO
         from portle.__main__ import main
         for guild,expected in [('', 'global: all installed servers'),('987','single development server')]:
-            output=StringIO();env={'PORTLE_CLUE_SOURCE':'manual','PORTLE_CLUES':str(Path(self.temp.name)/'doctor-clues'),'DISCORD_GUILD_ID':guild}
+            output=StringIO();env={'PORTLE_CLUE_SOURCE':'manual','PORTLE_CLUES':str(Path(self.temp.name)/'doctor-clues'),'DISCORD_GUILD_ID':guild,'PORTLE_RESET_GUILD_IDS':'987,654'}
             with patch.dict('os.environ',env,clear=True),patch('sys.argv',['portle','doctor']),patch('portle.__main__.load_dotenv'),patch('portle.store.GameStore',return_value=self.store),redirect_stdout(output):
                 self.assertEqual(main(),0)
             result=json.loads(output.getvalue());self.assertEqual(result['commandScope'],expected)
             self.assertFalse(result['networkConnectionAttempted']);self.assertTrue(result['serverInstallOnly'])
-            self.assertNotIn('987',output.getvalue())
+            self.assertEqual(result['resetAllowlistedServerCount'],2)
+            self.assertNotIn('987',output.getvalue());self.assertNotIn('654',output.getvalue())
     async def test_daily_can_be_opened_from_two_servers_with_independent_players(self):
         view=PlayPortleView(self.store)
         first=interaction('81');first.guild_id=501;second=interaction('82');second.guild_id=502

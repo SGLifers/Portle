@@ -1063,3 +1063,35 @@ No remote host restart, live command execution, token access or messages occurre
 here. All tests use isolated temporary stores and mocked Discord sends. Atlas and
 the user-authored new-only29-map clue package are unchanged by this feature.
 No required implementation work remains; handoff is ready for host verification.
+
+## Reset server allowlist — 2026-11-18
+
+User requested that only operator-allowlisted servers can use /portle reset.
+Added PORTLE_RESET_GUILD_IDS: private comma-separated positive Discord server
+IDs. Empty/unset denies resets in every server; malformed/empty list entries,
+wildcards, non-ASCII IDs and out-of-range IDs stop bot/doctor startup before the
+player database is opened. Editor ignores bot-only configuration as before.
+The CLI passes an immutable allowlist into the command group. Reset checks both
+the actual interaction guild and the invoking user's Administrator permission
+before deferring or calling reset_daily; callback rechecks Administrator even if
+command-level Discord permissions/checks are bypassed. Denial is private without
+disclosing the allowlist. Guild registration scope is independent; all other
+commands remain usable. Offline doctor reports only the allowlisted server count.
+
+Updated .env.example, README, Discord/Bisect guides, command help and AGENTS.
+No configured real IDs, tokens, private data or host settings were read/changed.
+No live login, command sync, Discord posts or production score changes occurred.
+No schema changes required; shared-score reset audit/replay semantics preserved.
+
+Validation: full126 offline tests passed in6.613s before the final added assertion
+that normal daily play remains allowed in denied servers. Added allowlist parser,
+startup validation, private denial/no mutation/audit, callback admin/DM checks,
+allowlisted reset, doctor ID redaction and unrestricted practice/play coverage.
+Final targeted40 Discord tests passed in0.886s with that additional assertion;
+git diff --check passed. Fetch confirmed origin/main matches the previous local
+HEAD, with no upstream changes to integrate. Deployment uses the new source
+commit/code-only ZIP; no local or hosted bot is started during this work.
+Hosted activation: update code, set PORTLE_RESET_GUILD_IDS privately (Copy Server
+ID, not channel/user ID), restart. Keep DISCORD_GUILD_ID blank for multi-server
+commands. Panel environment overrides .env. Empty removes all reset access;
+removing one ID and restarting revokes that server. Preserve .env and all data/.

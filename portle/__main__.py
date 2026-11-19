@@ -33,6 +33,9 @@ def main():
     if args.command=='editor':
         from .editor import serve
         serve(catalog,clues,args.port);return 0
+    from .config import reset_guild_ids
+    try:reset_servers=reset_guild_ids(os.getenv('PORTLE_RESET_GUILD_IDS','')) if args.command in ('bot','doctor') else frozenset()
+    except ValueError as error:parser.exit(2,str(error)+'\n')
     from .store import GameStore
     timezone_name=os.getenv('PORTLE_TIMEZONE','UTC')
     database=Path(os.getenv('PORTLE_DATABASE',str(ROOT/'data/portle.sqlite3')))
@@ -46,10 +49,11 @@ def main():
     from .bot import PortleClient,DiscordSetupError
     guild=os.getenv('DISCORD_GUILD_ID','').strip()
     if guild and (not guild.isdigit() or int(guild)<=0):parser.exit(2,'DISCORD_GUILD_ID must be a positive server ID.\n')
-    client=PortleClient(store,int(guild) if guild else None)
+    client=PortleClient(store,int(guild) if guild else None,reset_guild_ids=reset_servers)
     if args.command=='doctor':
         print(json.dumps({'maps':len(catalog.maps),'portals':sum(len(m.get('portals',[])) for m in catalog.maps),'clueSource':source,'publishedClueSets':len(clues.published()) if clues else None,'timezone':timezone_name,
             'commandScope':'single development server' if guild else 'global: all installed servers','serverInstallOnly':True,
+            'resetAllowlistedServerCount':len(reset_servers),
             'discordSdk':__import__('discord').__version__,'commands':client.tree.get_commands()[0].to_dict(client.tree),
             'tokenConfigured':bool(os.getenv('DISCORD_BOT_TOKEN')),'networkConnectionAttempted':False},indent=2))
         return 0

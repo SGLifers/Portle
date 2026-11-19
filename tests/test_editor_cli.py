@@ -16,7 +16,7 @@ class EditorCliTests(unittest.TestCase):
             root=Path(directory)
             # Bot-only configuration must not prevent the authoring tool opening.
             settings={'PORTLE_CLUE_SOURCE':'manual','PORTLE_DATABASE':str(root/'private.sqlite3'),
-                      'PORTLE_TIMEZONE':'invalid/zone','DISCORD_GUILD_ID':'not-a-server'}
+                      'PORTLE_TIMEZONE':'invalid/zone','DISCORD_GUILD_ID':'not-a-server','PORTLE_RESET_GUILD_IDS':'not-a-server'}
             with patch.dict(os.environ,settings,clear=True),patch('portle.__main__.ROOT',root),patch('sys.argv',['portle','editor','--port','8749']),patch('portle.editor.serve') as serve,patch('portle.store.GameStore',side_effect=AssertionError('Editor opened player DB')):
                 self.assertEqual(main(),0)
             catalog,library,port=serve.call_args.args
@@ -30,3 +30,9 @@ class EditorCliTests(unittest.TestCase):
         with patch.dict(os.environ,{'PORTLE_CLUE_SOURCE':'generated'},clear=True),patch('sys.argv',['portle','editor']),contextlib.redirect_stderr(io.StringIO()) as error:
             with self.assertRaises(SystemExit) as result:main()
         self.assertEqual(result.exception.code,2);self.assertIn('requires PORTLE_CLUE_SOURCE=manual',error.getvalue())
+    def test_invalid_reset_allowlist_blocks_startup_before_opening_scores(self):
+        for command in ['bot','doctor']:
+            with patch.dict(os.environ,{'PORTLE_RESET_GUILD_IDS':'private-value'},clear=True),patch('sys.argv',['portle',command]),patch('portle.store.GameStore',side_effect=AssertionError('Opened scores')),contextlib.redirect_stderr(io.StringIO()) as error:
+                with self.assertRaises(SystemExit) as result:main()
+            self.assertEqual(result.exception.code,2);self.assertIn('PORTLE_RESET_GUILD_IDS',error.getvalue())
+            self.assertNotIn('private-value',error.getvalue())

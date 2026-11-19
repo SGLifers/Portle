@@ -28,6 +28,9 @@ post or requeue uncertain deliveries automatically after a restart.
 The admin-only /portle reset command resets one member's current daily progress,
 retains a private audit/previous state and invalidates old board IDs. Preserve
 earlier daily history, practice rounds and replay protection when changing this.
+Reset also requires the invoking server in the operator's PORTLE_RESET_GUILD_IDS
+allowlist. Empty/unset denies all resets; invalid configuration blocks startup.
+Keep the allowlist independent of command registration and normal gameplay.
 
 Multi-server use registers commands globally with DISCORD_GUILD_ID blank. Commands
 support Guild Install/server channels only. One shared puzzle/library and per-user

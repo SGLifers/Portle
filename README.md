@@ -77,7 +77,7 @@ server administrators do not need the bot token or access to the editor.
 | --- | --- |
 | `/portle play` | Open or resume the private daily |
 | `/portle practice` | Administrators only: start new private practice |
-| `/portle reset player:@member` | Administrators only: reset that member's current daily score and guesses |
+| `/portle reset player:@member` | Administrators in operator-allowlisted servers: reset that member's shared daily |
 | `/portle guess map_name` | Guess the daily, with autocomplete |
 | `/portle maps` | List accepted answers |
 | `/portle stats` | Daily results and guess distribution |
@@ -110,7 +110,7 @@ controls check current permissions. Members can still play the daily puzzle, and
 denied practice requests respond privately. The loopback web server is only a
 clue authoring tool; it has no player accounts or gameplay.
 
-Admins can use `/portle reset player:@member` to give a server member another
+Admins in operator-allowlisted servers can use `/portle reset player:@member` to give a server member another
 attempt at today's same puzzle. It removes today's result from their stats and
 leaderboard, clears their guesses and starts them again at clue1. Earlier daily
 history and practice rounds are preserved. The date follows `PORTLE_TIMEZONE`.
@@ -120,6 +120,15 @@ result posts remain visible. The player must reopen with Play Portle or
 `/portle play`; their previous board stops working. A private SQLite audit retains
 the previous state and admin identity. Repeated delivery of the same reset does
 not erase a later attempt. Resetting someone with no current progress is a no-op.
+
+Resets are disabled everywhere by default. The bot operator must set
+`PORTLE_RESET_GUILD_IDS` to a comma-separated list of trusted server IDs in the
+hosted `.env` or panel environment, then restart. Administrators in other servers
+cannot reset shared scores. Empty/unset disables resets; malformed values stop
+bot startup. This setting is separate from `DISCORD_GUILD_ID` and does not restrict
+normal play, practice or announcements. `/portle reset` may remain visible in
+other servers, but requests are rejected privately before any score changes.
+Offline `doctor` reports only the allowlisted server count, not their IDs.
 
 Finishing a daily puzzle (win or loss) automatically posts your score and colored
 squares in the channel where you finished. The post identifies the player without
