@@ -26,7 +26,9 @@ class Response:
 
 
 def interaction(user='11',*,administrator=False):
-    return SimpleNamespace(user=SimpleNamespace(id=int(user)),guild_id=22,id=101,permissions=discord.Permissions(administrator=administrator),channel=SimpleNamespace(send=AsyncMock(return_value=SimpleNamespace(id=444))),response=Response(),edit_original_response=AsyncMock(),followup=SimpleNamespace(send=AsyncMock()))
+    guild=SimpleNamespace(id=22,me=SimpleNamespace(id=77))
+    channel=SimpleNamespace(id=33,guild=guild,permissions_for=lambda member:discord.Permissions(view_channel=True,send_messages=True,embed_links=True),send=AsyncMock(return_value=SimpleNamespace(id=444)))
+    return SimpleNamespace(user=SimpleNamespace(id=int(user)),guild_id=22,guild=guild,id=101,permissions=discord.Permissions(administrator=administrator),channel=channel,client=SimpleNamespace(get_channel=lambda cid:channel if cid==channel.id else None,fetch_channel=AsyncMock()),response=Response(),edit_original_response=AsyncMock(),followup=SimpleNamespace(send=AsyncMock()))
 
 
 class DiscordTests(unittest.IsolatedAsyncioTestCase):
@@ -35,8 +37,9 @@ class DiscordTests(unittest.IsolatedAsyncioTestCase):
     async def asyncTearDown(self):self.temp.cleanup()
     async def test_command_schema_and_no_privileged_intents(self):
         client=PortleClient(self.store);schema=client.tree.get_commands()[0].to_dict(client.tree)
-        self.assertEqual(schema['name'],'portle');self.assertEqual(len(schema['options']),9)
-        self.assertNotIn('share',[c['name'] for c in schema['options']])
+        self.assertEqual(schema['name'],'portle');self.assertEqual(len(schema['options']),11)
+        self.assertIn('share',[c['name'] for c in schema['options']])
+        self.assertNotIn('post-result',[c['name'] for c in schema['options']])
         reset=next(c for c in schema['options'] if c['name']=='reset')
         self.assertEqual(reset['options'][0]['name'],'player');self.assertEqual(reset['options'][0]['type'],6)
         self.assertTrue(reset['options'][0]['required'])
@@ -271,7 +274,7 @@ class DiscordTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn('<@11>',text);self.assertIn('X/6',text);self.assertIn('⬜'*6,text)
         self.assertNotIn(state['puzzle']['map']['name'],text);self.assertNotIn(state['puzzle']['map']['id'],text)
         kwargs=event.channel.send.call_args.kwargs
-        self.assertEqual(set(kwargs),{'view','allowed_mentions'});self.assertEqual(kwargs['allowed_mentions'].to_dict()['parse'],[])
+        self.assertEqual(set(kwargs),{'view','allowed_mentions','nonce'});self.assertEqual(kwargs['allowed_mentions'].to_dict()['parse'],[])
         self.assertTrue(kwargs['view'].is_persistent());self.assertEqual(kwargs['view'].play_button.label,'Play Portle')
         replay=interaction();await view.skip_button.callback(replay);replay.channel.send.assert_not_awaited()
         await show_round(replay,self.store,self.store.get(state['id'],'11'));replay.channel.send.assert_not_awaited()
@@ -438,10 +441,10 @@ class DiscordTests(unittest.IsolatedAsyncioTestCase):
         view=RoundView(self.store,self.state);event=interaction();await view.projection_button.callback(event)
         self.assertEqual(self.store.get(self.state['id'],'11')['version'],0)
         self.assertEqual(event.edit_original_response.call_args.kwargs['view'].projection,'top')
-    async def test_finished_board_disables_guesses_and_has_no_share_button(self):
+    async def test_finished_board_disables_guesses_and_has_share_results_button(self):
         state=self.store.act(self.state['id'],'11',0,guess=self.state['puzzle']['map']['name']);view=RoundView(self.store,state)
         self.assertTrue(view.map_select.disabled);self.assertTrue(view.skip_button.disabled)
-        self.assertNotIn('Share result',[getattr(c,'label',None) for c in view.children])
+        self.assertIn('Share results',[getattr(c,'label',None) for c in view.children])
     async def test_manual_board_uses_authored_bytes_and_review_controls(self):
         library=ClueLibrary(Path(self.temp.name)/'clues')
         for i in range(1,7):

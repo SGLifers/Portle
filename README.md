@@ -81,6 +81,8 @@ server administrators do not need the bot token or access to the editor.
 | `/portle guess map_name` | Guess the daily, with autocomplete |
 | `/portle maps` | List accepted answers |
 | `/portle stats` | Daily results and guess distribution |
+| `/portle share` | Share your completed daily in this server's configured results channel |
+| `/portle results channel:#games` | Administrators only: configure the channel for result posts |
 | `/portle leaderboard` | Overall daily records of this guild's participants |
 | `/portle announcements channel:#games` | Administrators only: enable scheduled recaps in this server |
 | `/portle help` | Explain the rules |
@@ -131,7 +133,8 @@ other servers, but requests are rejected privately before any score changes.
 Offline `doctor` reports only the allowlisted server count, not their IDs.
 
 Finishing a daily puzzle (win or loss) automatically posts your score and colored
-squares in the channel where you finished. The post identifies the player without
+squares in the configured results channel, or the channel where you finished if
+no results channel has been set. The post identifies the player without
 pinging them and contains no answer, guesses or clue images. **Play Portle** on
 the post opens or resumes the clicking player's own private daily puzzle, without
 a slash command. This public button survives bot restarts and always opens
@@ -143,7 +146,25 @@ concurrent interactions and restarts. Reopening completed boards does not post
 again or backfill older results. If a send fails or its outcome is uncertain, the
 bot preserves the game and gives private guidance to check the channel and the
 bot's access. Interrupted sends are not automatically retried, to avoid duplicate
-public messages. There is no manual Discord share button or command.
+public messages.
+
+To share a daily completed elsewhere, open `/portle play` in another server and
+choose **Share results**, or run `/portle share`. A server administrator first
+opts in with `/portle results channel:#games`. Bot and player must both have
+View Channel and Send Messages there. Sharing creates a fresh spoiler-free post
+with a working Play Portle button; it does not forward a Discord message or
+replay the puzzle. It also includes the player in that server's leaderboard.
+Only the invoking player's completed current daily is eligible; practice, old
+days and unfinished games cannot be shared.
+
+Automatic completions and manual shares use one durable reservation per
+player/puzzle/server, so resets, channel changes and restarts cannot duplicate a
+confirmed post. Definite Discord403/404/429 rejections can be retried explicitly
+with Share results after access is fixed; uncertain/in-progress sends are held.
+`/portle results` reports settings, `enabled:false` disables automatic and manual
+result posts, and `enabled:true` resumes the saved channel. Scheduled recaps use
+their separate `/portle announcements` configuration.
+See [result sharing and upgrade limits](docs/DISCORD_SETUP.md#sharing-results-between-servers).
 
 ## Data and configuration
 

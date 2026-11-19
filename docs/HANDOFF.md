@@ -1095,3 +1095,58 @@ Hosted activation: update code, set PORTLE_RESET_GUILD_IDS privately (Copy Serve
 ID, not channel/user ID), restart. Keep DISCORD_GUILD_ID blank for multi-server
 commands. Panel environment overrides .env. Empty removes all reset access;
 removing one ID and restarting revokes that server. Preserve .env and all data/.
+
+## Cross-server result sharing — 2026-11-18
+
+User approved a completed-board button named exactly **Share results** and a
+shortcut, then explicitly renamed the proposed /portle post-result to /portle
+share. Implemented /portle share (no arbitrary user/server/channel arguments),
+Share results on finished daily boards only, and admin-only /portle results
+channel:#games with enabled/status options. Reopening a completed daily in another
+server does not post until clicked. Practice, unsolved/previous-day/other-owner
+rounds cannot share. The same bot must be installed; both player and bot need
+View Channel and Send Messages in the configured destination of the invoking
+guild. Bot fetches only its configured destination and verifies actual guild.
+
+New portle/results.py creates additive result_config and server_result_posts
+tables. Manual sharing defaults off until server admin selects a text channel.
+Configured results channel also receives automatic completions; enabled:false
+disables both individual result types, independent of scheduled recaps. Before
+any config exists, existing automatic completion behavior stays in the finishing
+channel. Per player/puzzle/server atomic claims unify auto/manual sends, survive
+restarts, resets and channel changes. Claims recheck ownership/completion/day and
+config inside transaction, register server participation, and use stable nonce.
+Rows retain destination/message/status/unique attempt token; stale callbacks
+cannot alter later attempts. Explicit manual retry only after definite403/404/429
+rejection; pending/uncertain sends are held permanently for operator review.
+No automatic resends or blind clearing. Posting cannot guarantee exactly-once
+delivery across the network. Stable nonce supplements durable reservation.
+
+Legacy result_posts are preserved/read-only for new transport: suppress legacy
+automatic replay, but lack destination identity. First explicit share of an
+already-posted pre-upgrade daily may duplicate that older post; check channel.
+Documented limitation rather than guessing server mappings. New posts track each
+server and do not duplicate confirmed results. Reset does not grant another post
+in a server that already has a new-format record for that player/day.
+
+Public messages reuse spoiler-free result_message + persistent PlayPortleView;
+no screenshot, answer, guesses, raw coordinates or pings. Shared results count
+the player in the destination server leaderboard without replaying the puzzle or
+adding another win. Private Share results confirmation does not replace the
+board. Private buttons still expire15min; /portle play rebuilds them and /portle
+share works after restart. Help now uses an embed to fit Discord content limits.
+README, Discord/Bisect setup and AGENTS updated with opt-in, disable, permissions,
+retry/migration behavior. No live token, settings, library or scores touched.
+
+Validation: full148 tests passed in6.724s, including22 new result tests: actual
+manual screenshot daily loss, spoiler/ownership/mode/day guards, no unplayed
+round creation, admin config, both permissions, guild isolation, rollover/config
+change during lookup, concurrent DB claims/sends, restarts, reset/channel changes,
+safe retry/stale completion, pending/uncertain/crash holds, legacy migration and
+shared leaderboard participation. git diff --check passed. All Discord sends
+mocked and DBs temporary; no local/hosted bot startup, real command sync or posts.
+
+Deployment: publish the new source commit and code-only ZIP, preserving hosted
+.env and all data/. Restart, then each participating server admin runs
+/portle results channel:#games (separate from /portle announcements). Scores,
+clues, expanded roster and reset allowlist stay intact. No new dependencies.

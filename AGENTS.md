@@ -18,8 +18,15 @@ interaction handling, private game ownership and daily rollover with tests.
 
 Discord daily completion now automatically posts a spoiler-free score with a
 persistent Play Portle button. Practice is Administrator-only and stays private.
-There is no Discord share button/command or screenshot-source footer. Keep public
-result messages free of answers and clues.
+Completed daily boards now include Share results; /portle share posts the same
+saved result in the invoking server's admin-configured /portle results channel.
+Keep practice private and public result messages free of answers and clues.
+Sharing requires bot/member View Channel + Send Messages in that same server's
+destination. Reserve per user/puzzle/server across automatic/manual sends, resets
+and restarts; only explicit retries of definite Discord rejection may resend.
+Never automatically resend pending/uncertain deliveries. Keep legacy global
+post records intact; they lack server IDs and cannot be backfilled reliably.
+There is no screenshot-source footer.
 Scheduled closed-day recaps are an explicit user-approved exception: they name
 only the previous puzzle's frozen map after that day has ended. Weekly/all-time
 recaps and individual completion posts remain free of map answers and clues.

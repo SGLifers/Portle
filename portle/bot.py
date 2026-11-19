@@ -67,17 +67,54 @@ def result_post_error(error):
     return 'Your result is saved. '+reason+'Check this channel for the result and ask a server administrator to review the bot\'s access if it is missing.'
 
 
-async def post_daily_result(interaction,store,state):
-    if state['mode']!='daily' or state['status']=='playing':return
-    if not await asyncio.to_thread(store.claim_result_post,state['id'],interaction.user.id):return
+async def result_destination(interaction,store,manual):
+    guild=getattr(interaction,'guild',None)
+    if interaction.guild_id is None or guild is None or guild.id!=interaction.guild_id or guild.me is None:
+        raise GameError('Portle must be installed and ready in this server before posting results.')
+    config=await asyncio.to_thread(store.results.configure,interaction.guild_id)
+    if config and not config['enabled']:
+        if manual:raise GameError('Result posts are disabled in this server. Ask an administrator to enable /portle results.')
+        return None
+    if config:
+        channel=interaction.client.get_channel(int(config['channel_id'])) or await interaction.client.fetch_channel(int(config['channel_id']))
+    elif manual:raise GameError('Ask a server administrator to enable sharing with /portle results channel:#games.')
+    else:channel=interaction.channel
+    if channel is None or getattr(getattr(channel,'guild',None),'id',None)!=interaction.guild_id:
+        raise GameError('The results channel must be in this server.')
+    bot_permissions=channel.permissions_for(guild.me)
+    if not bot_permissions.view_channel or not bot_permissions.send_messages:
+        raise GameError('Allow Portle View Channel and Send Messages in the results channel.')
+    member_permissions=channel.permissions_for(interaction.user)
+    if not member_permissions.view_channel or not member_permissions.send_messages:
+        raise GameError('You need View Channel and Send Messages in the results channel to share there.')
+    return channel
+
+
+async def post_daily_result(interaction,store,state,*,manual=False):
+    if not manual and (state['mode']!='daily' or state['status']=='playing'):return
     try:
-        if interaction.guild_id is None or interaction.channel is None:raise GameError('A server channel is required.')
-        message=await interaction.channel.send(result_message(state),view=PlayPortleView(store),allowed_mentions=discord.AllowedMentions.none())
-    except (discord.HTTPException,OSError,GameError) as error:
-        await asyncio.to_thread(store.record_result_post,state['id'])
-        logging.getLogger(__name__).warning('Automatic result post failed: %s (HTTP %s, Discord code %s)',type(error).__name__,getattr(error,'status','n/a'),getattr(error,'code','n/a'))
+        state=await asyncio.to_thread(store.results.completed,interaction.user.id,state['id'])
+        if not manual and await asyncio.to_thread(store.results.legacy_post,state['id']):return
+        channel=await result_destination(interaction,store,manual)
+        if channel is None:return
+        claim=await asyncio.to_thread(store.results.claim,state['id'],interaction.user.id,interaction.guild_id,channel.id,manual)
+    except GameError as error:return await report_error(interaction,str(error))
+    except (discord.HTTPException,OSError) as error:return await report_error(interaction,result_post_error(error))
+    if not claim['claimed']:
+        if manual:
+            text=(f"Your results have already been posted in <#{claim['channel_id']}>." if claim['status']=='sent'
+                else 'A result post is already in progress or could not be confirmed. Check the results channel before asking an administrator for help; it will not be sent again automatically.')
+            await report_error(interaction,text)
+        return
+    try:
+        message=await channel.send(result_message(claim['state']),view=PlayPortleView(store),allowed_mentions=discord.AllowedMentions.none(),nonce=store.results.nonce(claim))
+    except (discord.HTTPException,OSError) as error:
+        rejected=isinstance(error,discord.HTTPException) and error.status in (403,404,429)
+        await asyncio.to_thread(store.results.finish,claim,'rejected' if rejected else 'uncertain')
+        logging.getLogger(__name__).warning('Result post failed: %s (HTTP %s, Discord code %s)',type(error).__name__,getattr(error,'status','n/a'),getattr(error,'code','n/a'))
         return await report_error(interaction,result_post_error(error))
-    await asyncio.to_thread(store.record_result_post,state['id'],message.id)
+    await asyncio.to_thread(store.results.finish,claim,'sent',message.id)
+    if manual:await report_error(interaction,f'Results shared in <#{channel.id}>.')
 
 
 async def show_round(interaction,store,state,projection='iso',replace=False,clue_index=None,announce=False):
@@ -129,6 +166,7 @@ class RoundView(discord.ui.View):
         super().__init__(timeout=900)
         self.store=store;self.round_id=state['id'];self.owner=state['user_id'];self.version=state['version'];self.projection=projection;self.mode=state['mode']
         finished=state['status']!='playing'
+        if not finished or self.mode!='daily':self.remove_item(self.share_results)
         guessed={a['map_id'] for a in state['attempts'] if a['kind']=='guess'}
         guessed_names={m['name'] for m in store.catalog.maps if m['id'] in guessed}
         names=[name for name in store.catalog.choices() if name not in guessed_names]
@@ -198,6 +236,14 @@ class RoundView(discord.ui.View):
         state=await asyncio.to_thread(self.store.get,self.round_id,interaction.user.id)
         await show_round(interaction,self.store,state,replace=True,clue_index=min(revealed_stage(state),self.clue_index+1))
 
+    @discord.ui.button(label='Share results',style=discord.ButtonStyle.success,row=3)
+    async def share_results(self,interaction,button):
+        await interaction.response.defer(ephemeral=True,thinking=True)
+        try:
+            state=await asyncio.to_thread(self.store.results.completed,interaction.user.id,self.round_id)
+            await post_daily_result(interaction,self.store,state,manual=True)
+        except GameError as error:await report_error(interaction,str(error))
+
     async def on_error(self,interaction,error,item):
         logging.getLogger(__name__).error('Board action failed: %s',type(error).__name__)
         await report_error(interaction,'Could not complete that action. Your progress is saved; reopen the daily with /portle play.')
@@ -259,6 +305,29 @@ class PortleCommands(app_commands.Group):
         text=f"Played **{stats['played']}** · Wins **{stats['wins']}** · Win rate **{stats['winPercent']}%**\nCurrent streak **{stats['currentStreak']}** · Best **{stats['bestStreak']}**\n\n"+'\n'.join(f"{n} guesses: {count}" for n,count in stats['distribution'].items())
         await interaction.edit_original_response(embed=discord.Embed(title='Your Portle stats',description=text,color=0x78E8D1))
 
+    @app_commands.command(description='Share your completed daily in this server\'s configured results channel')
+    async def share(self,interaction:discord.Interaction):
+        if interaction.guild_id is None:raise GameError('Share results from a server where Portle is installed.')
+        await interaction.response.defer(ephemeral=True,thinking=True)
+        state=await asyncio.to_thread(self.store.results.completed,interaction.user.id)
+        await post_daily_result(interaction,self.store,state,manual=True)
+
+    @app_commands.command(description='Admins only: choose a results channel or enable/disable result posts')
+    @app_commands.check(server_admin_check)
+    @app_commands.describe(channel='Text channel for shared and automatic results; selecting enables posts',enabled='Enable or disable result posts; omit both options to check status')
+    async def results(self,interaction:discord.Interaction,channel:discord.TextChannel=None,enabled:bool=None):
+        server_admin_check(interaction)
+        await interaction.response.defer(ephemeral=True,thinking=True)
+        if channel is not None:
+            if channel.guild.id!=interaction.guild_id:raise GameError('Choose a text channel in this server.')
+            if not interaction.guild or not interaction.guild.me:raise GameError('Portle must be installed and ready in this server first.')
+            permissions=channel.permissions_for(interaction.guild.me)
+            if not permissions.view_channel or not permissions.send_messages:raise GameError('Allow Portle View Channel and Send Messages in that channel first.')
+        config=await asyncio.to_thread(self.store.results.configure,interaction.guild_id,channel.id if channel else None,enabled)
+        if config is None:text='Cross-server sharing is off until an administrator chooses `/portle results channel:#games`. Automatic completions still post in the channel where a game finishes.'
+        else:text=f"Result posts: **{'enabled' if config['enabled'] else 'disabled'}** in <#{config['channel_id']}>. Share results and automatic completions use this channel, once per player/day/server. Scheduled recaps are configured separately with /portle announcements."
+        await interaction.edit_original_response(content=text,allowed_mentions=discord.AllowedMentions.none())
+
     @app_commands.command(description='Admins only: configure daily and weekly leaderboard announcements')
     @app_commands.check(server_admin_check)
     @app_commands.describe(channel='Server text channel for recaps; selecting a channel enables them',enabled='Enable or disable automatic recaps; omit both options to check status')
@@ -294,15 +363,17 @@ class PortleCommands(app_commands.Group):
     @app_commands.command(description='How to play Portle')
     async def help(self,interaction:discord.Interaction):
         clues=('Six guesses and six manually supplied screenshots. Revisit revealed clues for free.\n' if self.store.clues else 'Six guesses. Clues show 1, 2, 4, 8, 16, then all portals. Top/isometric views are free.\n')
-        await interaction.response.send_message(
+        text=(
             '**PORTLE** — guess the arena from real portal placements.\n'
             +clues+'Choose a map from the board dropdown to submit a guess. Wrong guesses and skips reveal the next clue. Invalid or repeated names are free.\n'
             +
             f'Daily resets at midnight **{self.store.zone.key}**; everyone gets the same map with private progress.\n'
             '`/portle play` daily · `/portle practice` admins only · `/portle guess` guess daily · `/portle maps` answer list · `/portle stats` records.\n'
+            'Finished elsewhere? Open `/portle play` here and choose **Share results**, or run `/portle share`. An admin must enable `/portle results channel:#games`. Only your completed daily is shared, once per server.\n'
             'Admins in operator-allowlisted servers: `/portle reset player` resets that member\'s current daily score and guesses. Earlier days and practice are preserved; daily progress is shared across servers.\n'
             'Admins: `/portle announcements channel:#games` enables daily recaps at 00:05 and Monday weekly/all-time boards at 00:10 in the configured timezone. Use `enabled:false` to turn them off, or omit options to check delivery status. Closed daily recaps reveal yesterday\'s map.\n'
-            'Finishing a daily automatically posts your score and squares in this channel, without the map name or clues. Anyone can use **Play Portle** on a result to open their own private daily. Practice results stay private. Private board controls expire after 15 minutes; public Play buttons survive restarts. Resume the daily with `/portle play`. Server administrators can start fresh practice with `/portle practice`; practice does not affect daily records.',ephemeral=True)
+            'Finishing a daily automatically posts your score and squares in the configured results channel (or here if none is configured), without the map name or clues. Administrators can disable result posts with `/portle results enabled:false` after choosing a channel. Anyone can use **Play Portle** on a result to open their own private daily. Practice results stay private. Private board controls expire after 15 minutes; public Play buttons survive restarts. Resume the daily with `/portle play`. Server administrators can start fresh practice with `/portle practice`; practice does not affect daily records.')
+        await interaction.response.send_message(embed=discord.Embed(title='Portle help',description=text,color=0x78E8D1),ephemeral=True,allowed_mentions=discord.AllowedMentions.none())
 
     async def on_error(self,interaction,error):
         original=getattr(error,'original',error)

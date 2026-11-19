@@ -147,6 +147,18 @@ of the SQLite snapshot and complete clue library, alongside provider backups.
 
 ## Later clue updates
 
+For cross-server result sharing, update/restart and have an Administrator in each
+participating server run `/portle results channel:#games`. Finished private daily
+boards offer **Share results**; `/portle share` is the shortcut. Existing scores
+are reused. This selects the destination for automatic completions too; no
+configuration keeps legacy automatic posting in the finishing channel, with
+manual sharing off. `/portle results enabled:false` disables individual result
+posts in that server. Scheduled recaps are configured separately below. Both bot
+and player need View Channel and Send Messages in the results channel. Existing
+SQLite data is preserved with additive result-config/delivery tables; keep .env
+and all data/ during updates. See the Discord setup guide's sharing section for
+duplicate/retry behavior and the pre-upgrade result-post limitation.
+
 For scheduled leaderboards, update the code and restart, then configure each
 server with `/portle announcements channel:#games`. Daily posts run at00:05;
 Monday weekly/all-time boards at00:10, using the existing `PORTLE_TIMEZONE`.

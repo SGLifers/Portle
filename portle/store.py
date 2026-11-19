@@ -33,6 +33,8 @@ class GameStore:
         self.path.chmod(0o600)
         from .announcements import AnnouncementStore
         self.announcements=AnnouncementStore(self)
+        from .results import ResultStore
+        self.results=ResultStore(self)
 
     @contextmanager
     def connection(self):

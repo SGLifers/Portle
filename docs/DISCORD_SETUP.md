@@ -125,9 +125,11 @@ under Integrations. Other app commands must not be bulk-deleted as cleanup.
    create another automatic result post. Check continuity with `/portle play`.
 
 Clues, guesses and normal game feedback remain private. A finished daily
-automatically posts the player's spoiler-free score in its finishing channel.
+automatically posts the player's spoiler-free score in its configured results
+channel, or its finishing channel if no results channel has been configured.
 Each automatic post includes Play Portle. Player attribution does not send a
-mention notification. There is no manual Discord share button or command.
+mention notification. Completed private daily boards include **Share results**;
+`/portle share` is a shortcut for posting in the current server's results channel.
 Guessing with `/portle guess` always targets the
 daily round; use the board's dropdown for practice guesses. The dropdown lists
 unguessed names alphabetically, including maps without published clues. Guessed
@@ -175,8 +177,9 @@ Automatic result delivery is reserved in SQLite before sending to prevent duplic
 posts from concurrent/replayed interactions or restarts. A failed or uncertain send
 is not retried automatically. The private board and scores remain saved; check
 whether the result appeared and ask a server administrator to review bot access
-if it is missing. Completed rounds are not manually reposted.
-Check **View Channels** and **Send Messages** in the finishing channel if posting
+if it is missing. Explicit Share results retries are permitted only for definite
+Discord403/404/429 rejection; uncertain or pending sends remain held.
+Check **View Channels** and **Send Messages** in the destination channel if posting
 fails; threads also require **Send Messages in Threads**. No extra privileged
 intents are required. Old completed rounds are not automatically announced on
 startup, and Play buttons require the bot to be online.
@@ -186,10 +189,59 @@ the bot account itself appears in the server's member list. An installed app or
 registered command does not establish bot membership. Install the same application
 using **Add to server / Guild Install** with both `bot` and
 `applications.commands` scopes. Failed automatic posts stay reserved to prevent
-duplicate sends; new completed daily games will use the restored access. Diagnostics
+duplicate automatic sends; explicit Share results can retry definite rejection
+after access is fixed. New completed daily games use the restored access. Diagnostics
 include HTTP status and Discord code:50001 points to missing access/membership,
 while50013 points to action permissions. Raw HTTP bodies and credentials are
 omitted from both private feedback and logs.
+
+## Sharing results between servers
+
+After updating/restarting the bot, a server Administrator opts in with:
+
+```text
+/portle results channel:#games
+```
+
+This is separate from scheduled recaps. It selects the text channel for both
+automatic completions and manual shares in this server. The bot must be installed
+in the server and have View Channel and Send Messages there. Each player sharing
+must also be able to view and send in that channel; the bot does not bypass their
+destination permissions. Existing servers keep automatic posts in the finishing
+channel until they configure a results channel. Manual sharing defaults off.
+
+1. Finish today's daily in any server running this same bot.
+2. In another server, use `/portle play` or its public Play Portle button.
+3. On your completed private board, press **Share results**.
+4. Portle posts your saved score and squares in that server's results channel,
+   with a fresh working Play Portle button and no answer/clues/ping. Feedback is
+   private. `/portle share` does the same without reopening the board.
+
+Only the player's completed current daily can be shared (including losses),
+not practice/unfinished/previous days or another player's result. Sharing also
+registers the player for that server's leaderboard, using their shared records.
+Opening a completed board alone never posts. Private controls still expire after
+15 minutes; reopen with `/portle play` or use `/portle share` after a restart.
+
+`/portle results` privately reports settings. `enabled:false` disables both types
+of individual result posts in that server; `enabled:true` resumes the saved channel.
+Scheduled recaps remain independent. Changing channel/reenabling does not repost
+results already confirmed in that server. Server settings persist in SQLite.
+
+Duplicate protection now keys by player, puzzle (including clue-source namespace)
+and server, shared by automatic and manual sends. A reset does not grant another
+post that day in the same server. Delivery outcomes are recorded; definite
+403/404/429 rejection can be manually retried after fixing access. Pending or
+uncertain sends (network interruption, crash after send) are held to avoid
+duplicates. Check the channel and ask the bot operator to inspect delivery
+records if necessary; do not clear reservations blindly.
+
+Upgrade limitation: older global result-post records contain no server/channel
+identity. They are preserved and prevent repeated legacy automatic sends, but
+cannot reliably establish which server already received a post. An explicit
+first share of a pre-upgrade daily can therefore repeat an older post; check the
+channel first. Newly recorded deliveries have per-server duplicate protection.
+No scores, clues or credentials need replacing; the new tables are additive.
 
 ## Keep it running
 
