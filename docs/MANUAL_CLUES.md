@@ -23,6 +23,14 @@ architecture. Visibility does not change the route graph. Atlas's PNG utility
 captures the map viewport without the map-title header or side panels; check the
 image itself for any visible text that would reveal the answer.
 
+Atlas's **Batch clues → Growing groups** option scales all six portal groups to
+each map. It reserves one portal per group when possible, then divides the rest
+with increasing weights 1–6. Cumulative captures retain earlier portals and show
+all portals in clue 6. For 50 portal walls, visible counts are 3, 8, 15, 24, 36,
+50; the first clue is not fixed at four. Existing screenshot sets retain their
+original counts until recaptured and republished. Portle displays the six uploaded
+images as authored; it does not calculate portal counts while players guess.
+
 ## Upload and publish
 
 Run `.venv/bin/python -m portle editor --port 8742`, then open

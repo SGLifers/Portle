@@ -1182,3 +1182,15 @@ updated30-map custom file was prepared under ignored
 clarification; it is unnecessary when using the new default. Source-only update
 ZIP is .local/deploy/Portle-source-2026-11-19.zip. Changes committed locally;
 no GitHub push or host deployment was requested/performed in this turn.
+
+### Dynamic capture counts — 2026-11-19
+
+User superseded the four-wall first-clue rule. The independent Atlas batch
+planner now scales every group to map size: reserve one portal per group, then
+apportion remaining portals with increasing weights1–6 and largest-remainder
+rounding. A30-wall map starts2,50 starts3,447 starts22. Six cumulative screenshots
+still end with the whole map. See Atlas handoff for implementation/18 passing
+Node tests and29 real map count checks. Updated docs/MANUAL_CLUES.md here only;
+Portle still displays the six uploaded images without computing portal counts.
+Existing PNG packs retain their old four-first captures until recaptured and
+republished. No clue library, player database, settings or hosted bot was changed.
