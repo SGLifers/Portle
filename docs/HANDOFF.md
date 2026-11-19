@@ -1252,3 +1252,53 @@ button as B, and capture whether B actually sees A's unique guesses/score on the
 private board. Shared daily clues alone do not distinguish player ownership.
 Screenshot regeneration remains pending: rechecked current CUA inventory after
 environment change; still no apps/browsers connected. No new captures generated.
+
+## Regenerated dynamic screenshots and upload packages — complete, 2026-11-19
+
+User explicitly authorized local headless capture. Atlas completed29 maps/174
+fresh PNGs using its existing UI/Three.js renderer and final minimum-four dynamic
+planner. Seed portle-dynamic-min4-2026-11-19,1280x800, random angle per clue,
+cumulative growing groups, portals only; geometry/labels/lines/allAngles/cutaway
+off.30-wall Simulation Divide starts4,50-wall Faceoff starts5,447-wall Drought
+starts24. No Outskirts source scene exists; its30-name roster entry remains
+available for guessing/authoring but has no published set and cannot be selected.
+
+Private deliverables (outside Git):
+/home/lambchopper67/Downloads/Portle-host-data-dynamic-min4-2026-11-19.zip
+(25.17MiB, SHA2566a35e918abbaa95eaad8297db49a14dc6abbfbcb8c38632edb7f4af42fbefc0f)
+/home/lambchopper67/Downloads/Portle-screenshots-dynamic-min4-2026-11-19.zip
+(25.14MiB;174 named PNGs in29 canonical map folders, including Drought)
+/home/lambchopper67/Downloads/Portle-host-data-dynamic-min4-2026-11-19/
+contains data/clues, data/map_names.json, screenshots, UPLOAD.txt, VALIDATION.json.
+The host ZIP has176 files: index.json,174 hashed PNGs and30-name map_names.json.
+Only current/new images are included:0 historical/orphan images and no overlap
+with Nov17's prior29-map package hashes. Existing local libraries/exports preserved.
+
+Reproducible ignored package command, from Portle:
+PYTHONPATH=. taskset -c 0-3 .venv/bin/python .local/package-dynamic-batch-2026-11-19.py ../PortalAtlas/.local/captures/capture-6463f6f68f0c4de3811de7ed7c87400e.zip
+Log .local/package-dynamic-2026-11-19.log. Script refuses existing destinations.
+Raw ZIP SHA25632227fca84a350cf8130fff48e85e0907add0ea8f6937b162abeb0a06cf7f532;
+capture provenance/command/completion proof are in Atlas handoff.
+
+Validation passed: raw/output ZIP CRC,174 unique decoded1280x800 PNGs/no embedded
+metadata/visible portal pixels, exact memberships and cumulative prefix coverage,
+groups/camera plans reproduced by current JS planner, first minimum4/scaled
+counts, six distinct camera poses per map, all29 source scene hashes unchanged.
+Every image normalized/published through ClueLibrary in the isolated output;
+draft/published references verified and0orphans. Actual GameStore practice
+start/image/act exercised all six stages for each29 maps using temporary DBs.
+Default30-name dropdown verified25+5 pages. Largest clue198200bytes, under2MB.
+Original authoring-library hashes unchanged. Visual QA inspected unmodified
+Divide clue1, Drought clues1/6 and Academy clue6: portal-only captures as intended.
+No database, token, source geometry, raw coordinates, capture manifest or lock
+file in either upload ZIP. No credentials or production scores were read/changed.
+
+Deployment is manual: stop/back up hosted clues, replace data/clues with supplied
+new-only library, preserve hosted data/portle.sqlite3 and .env, restart. Updated
+source has30 answers by default; remove PORTLE_CATALOG from .env and panel to use
+the bundled default. If retaining a custom override, update it with the matching
+included data/map_names.json. Older images are intentionally absent: removing
+them can break existing frozen daily/practice images; index replacement does not
+reset those saved rounds/scores. New practices/future daily puzzles use new sets.
+No hosted upload/restart, live Discord calls, GitHub push or game-host operations.
+Screenshot regeneration and packaging are complete; original bot/library intact.
