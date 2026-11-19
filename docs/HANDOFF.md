@@ -1218,3 +1218,37 @@ No new screenshots or data package was created. Keep existing libraries, scores,
 .env and previous delivered ZIPs intact. The future new-only export must use
 Drought display labels, preserve current29 map IDs and include default30 names;
 Outskirts gets no substitute clues. No hosted upload/restart/Discord operation.
+
+## Reported cross-player board visibility — investigated, unconfirmed, 2026-11-19
+
+User supplied two mobile screenshots of a report claiming another player's full
+results were temporarily visible. They show the claim and one ordinary public
+score summary with Play Portle, but no exposed private board, map answer,
+screenshot clue or guess list. Reporter says they dismissed the view themselves;
+there is no observed author-dismissal event affecting another player's view.
+Treat as an unconfirmed privacy report, not proof of a leak or proof of safety.
+Hosted version/live two-account behavior has not been verified.
+
+Reviewed result_message/post_daily_result, show_round, public PlayPortleView and
+GameStore.start/_owned. Public result text includes score/squares only. The
+persistent public button stores no author's round state; it starts/resumes the
+clicking member's own round and defers a separate private response. Board actions
+retain per-user ownership. No confirmed application defect or behavior change.
+
+Added test_another_players_score_opens_clickers_board_with_real_sdk_private_response
+to tests/test_discord.py. Author finishes with two guesses; fresh and partially
+played other members click that author's public score. Actual discord.py2.7.1
+InteractionResponse.defer serializer emits callback type5 and flags64, creating
+a private reply instead of editing the public source message. Tests check each
+member's own guess history, no author's private history or answer in active
+embed, unchanged author's saved state and unchanged public message/no channel send.
+Only fake HTTP callback return parsing is skipped; network transport is mocked.
+
+.venv/bin/python -m unittest discover -s tests -p 'test_discord.py' -v passed41
+tests in1.048s; git diff --check passed. No token lookup, live Discord message,
+production data access, host update or behavior change. Next verification needs
+two distinct Discord accounts/screens: complete player A, click A's public Play
+button as B, and capture whether B actually sees A's unique guesses/score on the
+private board. Shared daily clues alone do not distinguish player ownership.
+Screenshot regeneration remains pending: rechecked current CUA inventory after
+environment change; still no apps/browsers connected. No new captures generated.

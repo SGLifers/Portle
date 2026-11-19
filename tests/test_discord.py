@@ -11,7 +11,7 @@ from urllib.parse import parse_qs,urlparse
 from PIL import Image
 import discord
 from discord import app_commands
-from portle.bot import DiscordSetupError,MapGuessSelect,PlayPortleView,PortleClient,RoundView,post_daily_result,result_post_error,server_install_url,show_round
+from portle.bot import DiscordSetupError,MapGuessSelect,PlayPortleView,PortleClient,RoundView,post_daily_result,result_message,result_post_error,server_install_url,show_round
 from portle.catalog import Catalog
 from portle.store import GameStore
 from portle.clues import ClueLibrary
@@ -241,6 +241,40 @@ class DiscordTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(state['puzzle'],self.state['puzzle'])
             event.channel.send.assert_not_awaited()
         self.assertEqual(self.store.get(self.state['id'],'11')['version'],0)
+    async def test_another_players_score_opens_clickers_board_with_real_sdk_private_response(self):
+        answer=self.state['puzzle']['map']
+        wrong=[m for m in self.store.catalog.maps if m['id']!=answer['id']]
+        author=self.store.act(self.state['id'],'11',0,guess=wrong[0]['name'])
+        author=self.store.act(author['id'],'11',1,guess=answer['name'])
+        public=SimpleNamespace(id=444,content=result_message(author),edit=AsyncMock())
+        prior=self.store.start('98')
+        prior=self.store.act(prior['id'],'98',0,guess=wrong[1]['name'])
+        button=PlayPortleView(self.store)
+        for user,expected_guesses in [('99',[]),('98',[wrong[1]['name']])]:
+            with self.subTest(user=user):
+                event=interaction(user);event.message=public
+                parent=SimpleNamespace(type=discord.InteractionType.component,id=event.id,
+                    token='offline-test-token',_session=None,
+                    _state=SimpleNamespace(http=SimpleNamespace(proxy=None,proxy_auth=None)))
+                event.response=discord.InteractionResponse(parent)
+                adapter=SimpleNamespace(create_interaction_response=AsyncMock(return_value={}))
+                # Exercise the SDK serializer; skip only parsing its fake HTTP response.
+                with patch('discord.interactions.async_context') as context,patch('discord.interactions.InteractionCallbackResponse'):
+                    context.get.return_value=adapter
+                    await button.play_button.callback(event)
+                payload=adapter.create_interaction_response.call_args.kwargs['params'].payload
+                self.assertEqual(payload,{'type':5,'data':{'flags':64}})
+                response=event.edit_original_response.call_args.kwargs
+                state=self.store.get(response['view'].round_id,user)
+                self.assertNotEqual(state['id'],author['id'])
+                self.assertEqual(state['status'],'playing')
+                self.assertEqual([a['name'] for a in state['attempts']],expected_guesses)
+                self.assertNotIn(wrong[0]['name'],str(response['embed'].to_dict()))
+                self.assertNotIn(answer['name'],response['embed'].description)
+                self.assertEqual(response['view'].owner,user)
+                event.channel.send.assert_not_awaited()
+        self.assertEqual(self.store.get(author['id'],'11'),author)
+        self.assertEqual(public.content,result_message(author));public.edit.assert_not_awaited()
     async def test_public_play_button_uses_current_day_and_resumes_without_reposting(self):
         button=PlayPortleView(self.store)
         done=self.store.act(self.state['id'],'11',0,guess=self.state['puzzle']['map']['name'])
