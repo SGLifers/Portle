@@ -1150,3 +1150,35 @@ Deployment: publish the new source commit and code-only ZIP, preserving hosted
 .env and all data/. Restart, then each participating server admin runs
 /portle results channel:#games (separate from /portle announcements). Scores,
 clues, expanded roster and reset allowlist stay intact. No new dependencies.
+
+## Drought correction and expanded default roster — 2026-11-19
+
+User corrected Dought to Drought, requested Outskirts, and explicitly requested
+the expanded roster as the default. Bundled portle/map_names.json now has30 maps:
+the original23, six Simulation entries from the previous29-map host package, and
+Outskirts. The six Simulation IDs/names/aliases match that package exactly.
+Drought retains MAP_Erosion, accepts Dought/Erosion as compatibility aliases, and
+is also the name used by future legacy geometry imports. Outskirts uses
+MAP_Outskirts and is available for guesses/editor authoring. No Outskirts scene
+export or clue screenshots exist in the current Atlas library; six manually
+supplied screenshots must be published before it enters the puzzle rotation.
+No substitute images or generated clue fallback were introduced.
+
+Existing puzzle snapshots retain their frozen names/images. Regression checks
+cover Dought/Erosion snapshots solved with Drought and both aliases, unchanged
+clues, new practice displaying Drought, all six Simulation names in the default,
+and Outskirts requiring a published set. Full149 offline tests passed in6.674s;
+git diff --check passed. Initial sandboxed suite stalled in async checks and was
+interrupted; the approved unsandboxed rerun passed, including local HTTP tests.
+No live Discord connection, token/config edit, production database/library write,
+Atlas modification, hosted bot operation or asset publication occurred.
+
+The existing PORTLE_CATALOG override still deliberately takes precedence. Hosts
+using the prior package's data/map_names.json should remove PORTLE_CATALOG from
+both .env and panel environment after updating source, then restart to use the
+new bundled default. Preserve all existing data/ and credentials. An optional
+updated30-map custom file was prepared under ignored
+.local/deploy/portle-maps-2026-11-19/data/map_names.json before the user's default
+clarification; it is unnecessary when using the new default. Source-only update
+ZIP is .local/deploy/Portle-source-2026-11-19.zip. Changes committed locally;
+no GitHub push or host deployment was requested/performed in this turn.

@@ -37,18 +37,40 @@ class ManualTests(ManualFixture,unittest.TestCase):
     def test_names_only_catalog_has_no_game_geometry(self):
         self.assertGreater(len(self.catalog.maps),1)
         self.assertTrue(all('portals' not in m for m in self.catalog.maps))
+        for name in ('Anomaly','Charlie','Divide','Faceoff','Hectic','Moshpit'):
+            self.assertEqual(self.catalog.resolve('Simulation '+name)['id'],'MAP_Simulation_'+name)
     def test_renamed_map_keeps_clues_and_old_daily_answerable(self):
         self.mid='MAP_Erosion';self.pack()
-        previous=Catalog(tuple(dict(m,name='Erosion',aliases=[]) if m['id']==self.mid else m for m in self.catalog.maps),'previous-name')
-        old=GameStore(self.root/'game.db',previous,clock=lambda:self.now,clues=self.library)
-        state=old.start('u');image=old.image(state)
-        renamed=GameStore(self.root/'game.db',self.catalog,clock=lambda:self.now,clues=self.library)
-        self.assertIn('Dought',self.catalog.choices());self.assertNotIn('Erosion',self.catalog.choices())
-        self.assertEqual(self.catalog.resolve('Dought')['id'],self.catalog.resolve('Erosion')['id'])
-        won=renamed.act(state['id'],'u',0,guess='Dought')
-        self.assertEqual(won['status'],'won');self.assertEqual(won['puzzle'],state['puzzle'])
-        self.assertEqual(renamed.image(state,clue=1),image)
-        second=renamed.start('other');self.assertEqual(renamed.act(second['id'],'other',0,guess='Erosion')['status'],'won')
+        self.assertIn('Drought',self.catalog.choices())
+        for alias in ('Dought','Erosion'):
+            self.assertNotIn(alias,self.catalog.choices())
+            self.assertEqual(self.catalog.resolve(alias)['id'],self.catalog.resolve('Drought')['id'])
+        for previous_name in ('Dought','Erosion'):
+            with self.subTest(previous_name=previous_name):
+                path=self.root/(previous_name+'.db')
+                previous=Catalog(tuple(dict(m,name=previous_name,aliases=[]) if m['id']==self.mid else m for m in self.catalog.maps),'previous-name')
+                old=GameStore(path,previous,clock=lambda:self.now,clues=self.library)
+                state=old.start('u');image=old.image(state)
+                renamed=GameStore(path,self.catalog,clock=lambda:self.now,clues=self.library)
+                won=renamed.act(state['id'],'u',0,guess='Drought')
+                self.assertEqual(won['status'],'won');self.assertEqual(won['puzzle'],state['puzzle'])
+                self.assertEqual(renamed.image(state,clue=1),image)
+                for alias in ('Dought','Erosion'):
+                    second=renamed.start(alias)
+                    self.assertEqual(renamed.act(second['id'],alias,0,guess=alias)['status'],'won')
+                fresh=renamed.start('new','practice')
+                self.assertEqual(fresh['puzzle']['map']['name'],'Drought')
+    def test_outskirts_requires_published_clues_and_is_playable_after_publishing(self):
+        self.mid=self.catalog.resolve('Outskirts')['id']
+        self.assertEqual(self.mid,'MAP_Outskirts')
+        self.assertIn('Outskirts',self.catalog.choices())
+        entry=next(m for m in self.library.management(self.catalog) if m['id']==self.mid)
+        self.assertEqual(entry['draft'],[None]*6);self.assertIsNone(entry['published'])
+        self.library.upload(self.mid,1,screenshot())
+        with self.assertRaises(GameError):self.store.start('u')
+        self.pack();state=self.store.start('u')
+        self.assertEqual(state['puzzle']['map']['name'],'Outskirts')
+        self.assertEqual(self.store.act(state['id'],'u',0,guess='Outskirts')['status'],'won')
     def test_empty_library_and_drafts_cannot_be_played(self):
         for i in range(1,6):self.library.upload(self.mid,i,screenshot(i))
         with self.assertRaises(GameError):self.library.publish(self.mid)

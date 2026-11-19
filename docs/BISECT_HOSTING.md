@@ -175,6 +175,13 @@ directory. Start with manual file updates until a dedicated sync workflow exists
 
 ### Replacement library with additional map names
 
+The bundled default now includes all 30 answers: the expanded roster's six
+Simulation maps, Drought (formerly displayed as Dought), and Outskirts. No catalog
+override is needed for these maps. After updating the code, remove
+`PORTLE_CATALOG` from both `.env` and the panel environment to use this default,
+then restart. Existing clue IDs and player progress remain valid. Outskirts needs
+six published screenshots before it can appear as a puzzle.
+
 A prepared replacement package may include `data/map_names.json` alongside
 `data/clues/`. To enable answers beyond the bundled roster, set this in `.env`
 or the panel environment, then restart:
@@ -185,6 +192,12 @@ PORTLE_CATALOG=data/map_names.json
 
 The names list and clue index must use matching map IDs. This works with existing
 manual-mode bot code; answer dropdowns automatically paginate beyond 25 maps.
+When `PORTLE_CATALOG` selects this custom file, bundled roster updates do not
+change it. Update the custom file too when renaming or adding answers, preserving
+existing map IDs and additional entries. Drought keeps `MAP_Erosion`, with Dought
+and Erosion as compatibility aliases. Outskirts uses `MAP_Outskirts`; publish six
+screenshots under that ID before it can enter the puzzle rotation.
+
 For an explicitly requested new-clues-only replacement, back up and replace the
 clue folder rather than merging old images. Removing old PNGs can break frozen
 daily/practice snapshots that still reference them; replacing the index does not

@@ -40,8 +40,10 @@ selection, image rotation or enforced portal-count progression.
 - Optional server announcements: yesterday's map/results daily, plus weekly and
   all-time standings together each Monday, with shared ranks for ties.
 
-The bundled answer roster contains 23 maps. Only published maps enter the puzzle
-rotation, but the full roster remains available for guessing. One ready set is
+The bundled answer roster contains 30 maps, including the six Simulation maps
+and Outskirts. Drought is the displayed name; Dought and Erosion remain accepted
+aliases. Only published maps enter the puzzle rotation, but the full roster
+remains available for guessing. One ready set is
 sufficient to start. Daily resets at midnight `PORTLE_TIMEZONE` (default `UTC`).
 
 ## Discord

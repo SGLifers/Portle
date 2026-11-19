@@ -34,8 +34,11 @@
     },
     {
       "id": "MAP_Erosion",
-      "name": "Dought",
-      "aliases": ["Erosion"]
+      "name": "Drought",
+      "aliases": [
+        "Dought",
+        "Erosion"
+      ]
     },
     {
       "id": "MAP_Foregone_Destruction",
@@ -86,6 +89,11 @@
       "aliases": []
     },
     {
+      "id": "MAP_Outskirts",
+      "name": "Outskirts",
+      "aliases": []
+    },
+    {
       "id": "MAP_Ozone_Night",
       "name": "Ozone Night",
       "aliases": [
@@ -120,6 +128,36 @@
     {
       "id": "MAP_Zenith",
       "name": "Zenith",
+      "aliases": []
+    },
+    {
+      "id": "MAP_Simulation_Anomaly",
+      "name": "Simulation Anomaly",
+      "aliases": []
+    },
+    {
+      "id": "MAP_Simulation_Charlie",
+      "name": "Simulation Charlie",
+      "aliases": []
+    },
+    {
+      "id": "MAP_Simulation_Divide",
+      "name": "Simulation Divide",
+      "aliases": []
+    },
+    {
+      "id": "MAP_Simulation_Faceoff",
+      "name": "Simulation Faceoff",
+      "aliases": []
+    },
+    {
+      "id": "MAP_Simulation_Hectic",
+      "name": "Simulation Hectic",
+      "aliases": []
+    },
+    {
+      "id": "MAP_Simulation_Moshpit",
+      "name": "Simulation Moshpit",
       "aliases": []
     }
   ]
