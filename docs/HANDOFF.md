@@ -1302,3 +1302,19 @@ them can break existing frozen daily/practice images; index replacement does not
 reset those saved rounds/scores. New practices/future daily puzzles use new sets.
 No hosted upload/restart, live Discord calls, GitHub push or game-host operations.
 Screenshot regeneration and packaging are complete; original bot/library intact.
+
+## Source pushed to GitHub — 2026-11-19
+
+User explicitly requested pushing both repositories. Fetched origin/main and
+confirmed0 remote-only /6 local-only commits. Audited all16 outgoing source blobs
+across those commits: no private runtime paths, asset/image archives, database,
+credential-token patterns or private keys. git diff --check passed. Fresh
+taskset -c 0-1 .venv/bin/python -m unittest discover -s tests -v passed150 tests
+in6.450s; log .local/tests-prepush-2026-11-19.log. Atlas18 Node tests passed too.
+
+git push origin HEAD:main succeeded, advancing SGLifers/Portle main from a6a10e3
+to9ea4d78 (Drought/default30 maps, privacy regression and documentation). A final
+documentation-only commit records this verified rollout and is pushed as well.
+No force push, remote divergence or conflicts. Screenshot/data ZIPs remain local
+and need separate upload as documented above. No hosted bot restart, live Discord
+connection, production data mutation or game-host operation was performed.
