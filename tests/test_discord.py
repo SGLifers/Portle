@@ -1,5 +1,6 @@
 from io import BytesIO
 from io import StringIO
+import asyncio
 from contextlib import redirect_stdout
 from datetime import timedelta
 from pathlib import Path
@@ -28,7 +29,8 @@ class Response:
 def interaction(user='11',*,administrator=False):
     guild=SimpleNamespace(id=22,me=SimpleNamespace(id=77))
     channel=SimpleNamespace(id=33,guild=guild,permissions_for=lambda member:discord.Permissions(view_channel=True,send_messages=True,embed_links=True),send=AsyncMock(return_value=SimpleNamespace(id=444)))
-    return SimpleNamespace(user=SimpleNamespace(id=int(user)),guild_id=22,guild=guild,id=101,permissions=discord.Permissions(administrator=administrator),channel=channel,client=SimpleNamespace(get_channel=lambda cid:channel if cid==channel.id else None,fetch_channel=AsyncMock()),response=Response(),edit_original_response=AsyncMock(),followup=SimpleNamespace(send=AsyncMock()))
+    private=SimpleNamespace(flags=discord.MessageFlags(ephemeral=True),interaction_metadata=SimpleNamespace(user=SimpleNamespace(id=int(user))))
+    return SimpleNamespace(user=SimpleNamespace(id=int(user)),guild_id=22,guild=guild,id=101,permissions=discord.Permissions(administrator=administrator),channel=channel,client=SimpleNamespace(get_channel=lambda cid:channel if cid==channel.id else None,fetch_channel=AsyncMock()),response=Response(),original_response=AsyncMock(return_value=private),edit_original_response=AsyncMock(),followup=SimpleNamespace(send=AsyncMock()))
 
 
 class DiscordTests(unittest.IsolatedAsyncioTestCase):
@@ -191,8 +193,10 @@ class DiscordTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(output.getvalue(),'')
                 with patch('builtins.print',wraps=print) as printer:
                     await client.on_ready()
-                    printer.assert_called_once_with('successfully finished startup',flush=True)
-            self.assertEqual(output.getvalue(),'successfully finished startup\n')
+                    self.assertEqual(printer.call_count,2)
+                    printer.assert_any_call('Portle private board verification enabled',flush=True)
+                    printer.assert_any_call('successfully finished startup',flush=True)
+            self.assertEqual(output.getvalue(),'Portle private board verification enabled\nsuccessfully finished startup\n')
         finally:await client.close()
     async def test_server_install_url_is_reusable_and_requests_minimal_bot_permissions(self):
         query=parse_qs(urlparse(server_install_url(12345)).query)
@@ -365,6 +369,79 @@ class DiscordTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn(self.state['puzzle']['map']['name'],kwargs['embed'].description)
         self.assertNotIn('footer',kwargs['embed'].to_dict())
         self.assertNotIn('Share result',[getattr(c,'label',None) for c in kwargs['view'].children])
+    async def test_private_board_rejects_public_missing_or_wrong_recipient_before_rendering(self):
+        finished=self.store.act(self.state['id'],'11',0,guess=self.state['puzzle']['map']['name'])
+        for reason,actor,flags,metadata in [
+            ('non_private_response','11',discord.MessageFlags(),None),
+            ('non_private_response','11',None,None),
+            ('recipient_unverified','11',discord.MessageFlags(ephemeral=True),None),
+            ('recipient_mismatch','11',discord.MessageFlags(ephemeral=True),SimpleNamespace(user=SimpleNamespace(id=99))),
+            ('owner_mismatch','99',discord.MessageFlags(ephemeral=True),None),
+        ]:
+            with self.subTest(reason=reason,actor=actor):
+                event=interaction(actor)
+                event.original_response.return_value=SimpleNamespace(flags=flags,interaction_metadata=metadata)
+                with patch.object(self.store,'image') as render,self.assertLogs('portle.bot',level='WARNING') as logs:
+                    with self.assertRaisesRegex(GameError,'private board'):await show_round(event,self.store,finished)
+                render.assert_not_called();event.edit_original_response.assert_not_awaited();event.channel.send.assert_not_awaited()
+                self.assertIn(reason,' '.join(logs.output))
+                self.assertNotIn(finished['puzzle']['map']['name'],' '.join(logs.output))
+                if actor=='99':event.original_response.assert_not_awaited()
+    async def test_private_board_verification_failure_does_not_disclose_http_details(self):
+        failures=[OSError('private raw detail'),discord.ClientException('private raw detail'),
+            discord.NotFound(SimpleNamespace(status=404,reason='Not found'),{'code':10015,'message':'private raw detail'})]
+        for failure in failures:
+            with self.subTest(failure=type(failure).__name__):
+                event=interaction();event.original_response.side_effect=failure
+                with self.assertLogs('portle.bot',level='WARNING') as logs:
+                    await PlayPortleView(self.store).play_button.callback(event)
+                self.assertIn('verification_unavailable',' '.join(logs.output))
+                self.assertNotIn('private raw detail',' '.join(logs.output))
+                event.edit_original_response.assert_not_awaited();event.channel.send.assert_not_awaited()
+                self.assertTrue(event.followup.send.call_args.kwargs['ephemeral'])
+                self.assertNotIn('private raw detail',event.followup.send.call_args.args[0])
+    async def test_public_board_controls_are_blocked_before_progress_or_view_changes(self):
+        wrong=next(m['name'] for m in self.store.catalog.maps if m['id']!=self.state['puzzle']['map']['id'])
+        for control in ['map_select','skip_button','next_maps','projection_button','earlier_button','later_button']:
+            with self.subTest(control=control):
+                view=RoundView(self.store,self.state);event=interaction()
+                event.original_response.return_value.flags=discord.MessageFlags()
+                with patch.object(MapGuessSelect,'values',new_callable=PropertyMock,return_value=[wrong]),self.assertLogs('portle.bot',level='WARNING'):
+                    try:await getattr(view,control).callback(event)
+                    except GameError as error:await view.on_error(event,error,getattr(view,control))
+                self.assertEqual(self.store.get(self.state['id'],'11'),self.state)
+                event.edit_original_response.assert_not_awaited();event.channel.send.assert_not_awaited()
+                self.assertTrue(event.followup.send.call_args.kwargs['ephemeral'])
+    async def test_private_boards_accept_legacy_metadata_and_label_owner(self):
+        event=interaction()
+        event.original_response.return_value=SimpleNamespace(flags=discord.MessageFlags(ephemeral=True),
+            interaction_metadata=None,interaction=SimpleNamespace(user=event.user))
+        await show_round(event,self.store,self.state)
+        self.assertIn('<@11>',event.edit_original_response.call_args.kwargs['embed'].description)
+    async def test_simultaneous_public_play_clicks_keep_distinct_private_completed_results(self):
+        answer=self.state['puzzle']['map']['name'];wrong=next(n for n in self.store.catalog.choices() if n!=answer)
+        first=self.store.act(self.state['id'],'11',0,guess=answer)
+        second=self.store.start('99');second=self.store.act(second['id'],'99',0,guess=wrong)
+        second=self.store.act(second['id'],'99',1,guess=answer)
+        entered=0;release=asyncio.Event()
+        async def fetch_private(user):
+            nonlocal entered
+            entered+=1
+            if entered==2:release.set()
+            await release.wait()
+            return SimpleNamespace(flags=discord.MessageFlags(ephemeral=True),interaction_metadata=SimpleNamespace(user=user))
+        a=interaction('11');b=interaction('99')
+        async def fetch_a():return await fetch_private(a.user)
+        async def fetch_b():return await fetch_private(b.user)
+        a.original_response.side_effect=fetch_a;b.original_response.side_effect=fetch_b
+        button=PlayPortleView(self.store)
+        await asyncio.wait_for(asyncio.gather(button.play_button.callback(a),button.play_button.callback(b)),timeout=5)
+        for event,state,score in [(a,first,'1/6'),(b,second,'2/6')]:
+            response=event.edit_original_response.call_args.kwargs
+            self.assertEqual(response['view'].owner,state['user_id'])
+            self.assertIn('<@'+state['user_id']+'>',response['embed'].description)
+            self.assertIn(score,response['embed'].description)
+            event.channel.send.assert_not_awaited()
     async def test_foreign_player_rejected(self):
         view=RoundView(self.store,self.state);event=interaction('99')
         self.assertFalse(await view.interaction_check(event));self.assertTrue(event.response.send_message.call_args.kwargs['ephemeral'])

@@ -258,6 +258,18 @@ private because they contain Discord identifiers and the puzzle schedule seed.
 
 ## Troubleshooting
 
+- **Reported visibility of another player's full board:** treat this as a privacy
+  incident. Public score/squares messages are expected; screenshots, answer and
+  guess history belong to the individual board. Update/restart the hosted bot and
+  check its log for `private board verification enabled`. New boards identify
+  their player. Board delivery now checks the actual response is ephemeral and
+  its interaction recipient matches the player before sending private content.
+  Failed/missing verification withholds the board; use `/portle play` to reopen.
+  `Private board blocked` logs give a safe reason without tokens, IDs or answers.
+  Retest using two separate accounts with different guess histories: B clicks
+  Play Portle under A's public score and must see only B's board. Record the
+  initiating control, client/platform and timestamp. Passing offline tests or
+  requesting ephemeral flags alone does not establish live incident resolution.
 - **Token not configured:** replace the example value in local `.env`; environment
   variables take precedence over `.env`. Do not print the token while debugging.
 - **Token rejected:** update the token locally using your Developer Portal bot.

@@ -16,6 +16,13 @@ raw coordinates and revealing filenames out of unsolved clue payloads. Share
 results without spoilers. Validate turn limits, restart persistence, concurrent
 interaction handling, private game ownership and daily rollover with tests.
 
+Before board edits/attachments or board actions that consume a turn, verify the
+actual original Discord response is ephemeral and its interaction recipient
+matches the actor/round owner. Missing privacy/recipient metadata or failed
+verification must withhold the board. Keep privacy diagnostics free of answers,
+guesses, interaction tokens and Discord IDs. Do not treat requested flags alone
+as proof of actual destination privacy or passing mocks as live incident closure.
+
 Discord daily completion now automatically posts a spoiler-free score with a
 persistent Play Portle button. Practice is Administrator-only and stays private.
 Completed daily boards now include Share results; /portle share posts the same

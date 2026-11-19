@@ -26,6 +26,26 @@ async def report_error(interaction,message):
     else:await interaction.response.send_message(message,ephemeral=True,allowed_mentions=discord.AllowedMentions.none())
 
 
+async def verify_private_board(interaction,owner):
+    """Check Discord's actual destination before sending any private board data."""
+    reason=None
+    if str(interaction.user.id)!=str(owner):reason='owner_mismatch'
+    else:
+        try:message=await interaction.original_response()
+        except (discord.HTTPException,discord.ClientException,OSError):reason='verification_unavailable'
+        else:
+            if getattr(getattr(message,'flags',None),'ephemeral',False) is not True:reason='non_private_response'
+            else:
+                metadata=getattr(message,'interaction_metadata',None) or getattr(message,'interaction',None)
+                if metadata is None:reason='recipient_unverified'
+                elif str(getattr(getattr(metadata,'user',None),'id',''))!=str(owner):
+                    reason='recipient_mismatch'
+    if reason:
+        response_type=getattr(getattr(interaction.response,'type',None),'name','unknown')
+        logging.getLogger(__name__).warning('Private board blocked: %s (response=%s)',reason,response_type)
+        raise GameError('Could not verify a private board for you. Use /portle play to reopen your own puzzle.')
+
+
 def server_install_url(application_id):
     permissions=discord.Permissions(view_channel=True,send_messages=True,embed_links=True,attach_files=True)
     return discord.utils.oauth_url(application_id,permissions=permissions)+'&integration_type=0'
@@ -36,7 +56,7 @@ def round_embed(state,projection,clue_index=None):
     title='Which arena is this?' if active else ('Arena identified!' if data['status']=='won' else 'The arena was '+data['answer'])
     mode='Daily · '+data['day'] if data['mode']=='daily' else 'Practice'
     manual=data['clueSource']=='manual'
-    description=f"{mode}\nClue **{data['turn']}/6** · "+(f"Screenshot **{clue_index or revealed_stage(state)}** of **{revealed_stage(state)}** revealed." if manual else f"**{data['portalCount']}** portals revealed.")
+    description=f"{mode} · <@{state['user_id']}>\nClue **{data['turn']}/6** · "+(f"Screenshot **{clue_index or revealed_stage(state)}** of **{revealed_stage(state)}** revealed." if manual else f"**{data['portalCount']}** portals revealed.")
     if active:description+='\nChoose a map from the dropdown to submit a guess, or reveal the next clue. Each miss/skip uses one guess.'
     else:description+='\n**'+data['answer']+'**\n```\n'+data['share']+'\n```'
     embed=discord.Embed(title=title,description=description,color=0x78E8D1 if data['status']!='lost' else 0xE8B777)
@@ -120,6 +140,7 @@ async def post_daily_result(interaction,store,state,*,manual=False):
 async def show_round(interaction,store,state,projection='iso',replace=False,clue_index=None,announce=False):
     if not interaction.response.is_done():await interaction.response.defer(ephemeral=True,thinking=not replace)
     try:
+        await verify_private_board(interaction,state['user_id'])
         image=await asyncio.to_thread(store.image,state,projection,clue_index)
         await interaction.edit_original_response(content=None,embed=round_embed(state,projection,clue_index),
             attachments=[discord.File(BytesIO(image),filename='portle-clue.png')],
@@ -137,6 +158,7 @@ class PlayPortleView(discord.ui.View):
         if interaction.guild_id is None:return await report_error(interaction,'Play Portle in a server to open your private daily puzzle.')
         await interaction.response.defer(ephemeral=True,thinking=True)
         try:
+            await verify_private_board(interaction,interaction.user.id)
             state=await asyncio.to_thread(self.store.start,interaction.user.id,guild_id=interaction.guild_id)
             await show_round(interaction,self.store,state)
         except GameError as error:await report_error(interaction,str(error))
@@ -156,6 +178,7 @@ class MapGuessSelect(discord.ui.Select):
     async def callback(self,interaction):
         await interaction.response.defer(ephemeral=True,thinking=False)
         try:
+            await verify_private_board(interaction,self.board.owner)
             state=await asyncio.to_thread(self.board.store.act,self.board.round_id,interaction.user.id,self.board.version,guess=self.values[0],event_id=str(interaction.id))
             await show_round(interaction,self.board.store,state,self.board.projection,replace=True,announce=True)
         except GameError as exc:await report_error(interaction,str(exc))
@@ -199,6 +222,7 @@ class RoundView(discord.ui.View):
     async def change_map_page(self,interaction,offset):
         await interaction.response.defer(ephemeral=True,thinking=False)
         try:
+            await verify_private_board(interaction,self.owner)
             state=await asyncio.to_thread(self.store.get,self.round_id,interaction.user.id)
             if state['version']!=self.version or state['status']!='playing':raise GameError('This board is out of date. Use /portle play to refresh your daily round.')
             await interaction.edit_original_response(view=RoundView(self.store,state,self.projection,self.clue_index,self.map_page+offset))
@@ -214,6 +238,7 @@ class RoundView(discord.ui.View):
     async def skip_button(self,interaction,button):
         await interaction.response.defer(ephemeral=True,thinking=False)
         try:
+            await verify_private_board(interaction,self.owner)
             state=await asyncio.to_thread(self.store.act,self.round_id,interaction.user.id,self.version,skip=True,event_id=str(interaction.id))
             await show_round(interaction,self.store,state,self.projection,replace=True,announce=True)
         except GameError as exc:await report_error(interaction,str(exc))
@@ -221,18 +246,21 @@ class RoundView(discord.ui.View):
     @discord.ui.button(label='Top view',style=discord.ButtonStyle.secondary,row=2)
     async def projection_button(self,interaction,button):
         await interaction.response.defer(ephemeral=True,thinking=False)
+        await verify_private_board(interaction,self.owner)
         state=await asyncio.to_thread(self.store.get,self.round_id,interaction.user.id)
         await show_round(interaction,self.store,state,'top' if self.projection=='iso' else 'iso',replace=True)
 
     @discord.ui.button(label='Earlier clue',style=discord.ButtonStyle.secondary,row=2)
     async def earlier_button(self,interaction,button):
         await interaction.response.defer(ephemeral=True,thinking=False)
+        await verify_private_board(interaction,self.owner)
         state=await asyncio.to_thread(self.store.get,self.round_id,interaction.user.id)
         await show_round(interaction,self.store,state,replace=True,clue_index=max(1,self.clue_index-1))
 
     @discord.ui.button(label='Later clue',style=discord.ButtonStyle.secondary,row=2)
     async def later_button(self,interaction,button):
         await interaction.response.defer(ephemeral=True,thinking=False)
+        await verify_private_board(interaction,self.owner)
         state=await asyncio.to_thread(self.store.get,self.round_id,interaction.user.id)
         await show_round(interaction,self.store,state,replace=True,clue_index=min(revealed_stage(state),self.clue_index+1))
 
@@ -260,6 +288,7 @@ class PortleCommands(app_commands.Group):
     @app_commands.command(description='Play or resume your private daily map puzzle')
     async def play(self,interaction:discord.Interaction):
         await interaction.response.defer(ephemeral=True,thinking=True)
+        await verify_private_board(interaction,interaction.user.id)
         state=await asyncio.to_thread(self.store.start,interaction.user.id,guild_id=interaction.guild_id)
         await show_round(interaction,self.store,state)
 
@@ -267,6 +296,7 @@ class PortleCommands(app_commands.Group):
     @app_commands.check(server_admin_check)
     async def practice(self,interaction:discord.Interaction):
         await interaction.response.defer(ephemeral=True,thinking=True)
+        await verify_private_board(interaction,interaction.user.id)
         state=await asyncio.to_thread(self.store.start,interaction.user.id,'practice',interaction.guild_id)
         await show_round(interaction,self.store,state)
 
@@ -289,6 +319,7 @@ class PortleCommands(app_commands.Group):
     async def guess(self,interaction:discord.Interaction,map_name:str):
         await interaction.response.defer(ephemeral=True,thinking=True)
         try:
+            await verify_private_board(interaction,interaction.user.id)
             state=await asyncio.to_thread(self.store.start,interaction.user.id,guild_id=interaction.guild_id)
             state=await asyncio.to_thread(self.store.act,state['id'],interaction.user.id,state['version'],guess=map_name,event_id=str(interaction.id))
             await show_round(interaction,self.store,state,announce=True)
@@ -414,7 +445,8 @@ class PortleClient(discord.Client):
         logging.getLogger(__name__).info('Registered %d command groups (%s)',len(commands),'single development server' if self.guild_id else 'global: all installed servers')
 
     async def on_ready(self):
-        logging.getLogger(__name__).info('Portle connected and ready')
+        logging.getLogger(__name__).info('Portle connected and ready; private board verification enabled')
+        print('Portle private board verification enabled',flush=True)
         # Bisect's panel recognizes this exact stdout marker after Discord is ready.
         print('successfully finished startup',flush=True)
         if not self.announcement_loop.is_running():self.announcement_loop.start()

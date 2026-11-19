@@ -1318,3 +1318,61 @@ documentation-only commit records this verified rollout and is pushed as well.
 No force push, remote divergence or conflicts. Screenshot/data ZIPs remain local
 and need separate upload as documented above. No hosted bot restart, live Discord
 connection, production data mutation or game-host operation was performed.
+
+## Confirmed personal-board report and privacy containment — 2026-11-19
+
+User supplied follow-up screenshots showing they explicitly distinguished the
+expected public score summary from an unexpected personal board. Reporter
+confirmed the latter and that it belonged to the user. Treat this as a credible,
+confirmed report of personal-board exposure; the earlier unconfirmed assessment
+is superseded. The actual originating interaction/hosted version and transport
+mechanism have not been reproduced or established. No original runtime payload
+or observer screenshot at the time of exposure is available. Do not claim that
+passing tests disproves the report or that a root-cause fix is proven.
+
+Reviewed all board/score paths, GameStore ownership and historical public Play
+handler. Existing code consistently requests ephemeral responses, but had no
+runtime check of the actual original message's privacy/recipient before edits.
+Added verify_private_board: compare actor and round owner, fetch actual original
+response, require ephemeral=True and matching user from interaction_metadata (or
+legacy interaction metadata). Missing recipient/privacy data, fetch errors or
+mismatches withhold the board. Verify before entrypoint starts, guess/skip
+mutations, page/clue/projection edits and all board image/embed delivery. SDK
+original_response caches its result within each interaction, so repeated guards
+reuse one verified response. Existing replay, private ownership, scoring and
+public spoiler-free score behavior remain intact. No database migration.
+
+Private board descriptions now identify the player with a mention; mentions are
+suppressed as before. on_ready logs and prints `Portle private board verification
+enabled` while preserving the hosting startup marker. Safe warning reasons: owner_mismatch,
+non_private_response, recipient_unverified, recipient_mismatch and
+verification_unavailable; no tokens, IDs, answers, guesses or raw HTTP errors.
+AGENTS and Discord troubleshooting document the invariant and two-account retest.
+
+Validation: final full155 tests passed in6.752s via taskset -c 0-3 .venv/bin/python -m
+unittest discover -s tests -v; .local/tests-privacy-full-2026-11-19.log. Added
+negative cases for public/missing flags, missing/wrong recipient, wrong state
+owner, unavailable HTTP/client responses and raw-error redaction. Verify no
+render/edit/upload on failure and no turn consumption/view changes across board
+controls; test legacy recipient metadata, owner label and overlapping public
+Play clicks with distinct completed results. Existing real-SDK defer flag test,
+all manual/daily/restart/concurrency/share/announcement tests pass. Whitespace
+checks pass. All network sends mocked and player stores temporary.
+
+This is containment and diagnostic hardening; live cause/resolution remains
+unverified. Update/restart the hosted bot, confirm its new startup log, reopen
+boards with /portle play, then retest A/B with distinct histories and record the
+entry control/client/time if any wrong-player board appears. User was asked what
+the reporter clicked and whether hosting had restarted since the prior push;
+answers were not available during implementation. No credentials, production
+scores/library, live Discord messages, hosting configuration or bot process was
+accessed/changed. Existing local/GitHub source workflow is used for the patch;
+hosting update and live retest remain the operator's action.
+
+Before release, fetched origin/main and confirmed no upstream divergence; audited
+all5 changed source/docs/test files for credential patterns/private runtime paths,
+and git diff --check passed. Publication uses the user's existing explicit push
+authorization via git push origin HEAD:main. Source-only recovery ZIP is ignored
+.local/deploy/Portle-privacy-verification-2026-11-19.zip; it contains no data or
+credentials, and must preserve hosted .env/data. Do not call this a verified
+root-cause resolution until the hosted two-account test confirms isolation.
