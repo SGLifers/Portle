@@ -1204,3 +1204,17 @@ one-per-group policy above. Updated MANUAL_CLUES.md; Atlas18 Node tests and all2
 available real map count checks pass. Six clues, final full coverage and existing
 PNG packs remain as before; using new counts requires recapture/republish. No
 library, scores, credentials, bot/host operations or public uploads were made.
+
+## Screenshot regeneration requested — pending browser, 2026-11-19
+
+Latest user request is to regenerate screenshots with the final minimum-four,
+dynamic scaling policy.29 maps have Atlas source scenes, so expect174 new PNGs;
+Outskirts remains unavailable pending a real source scene. Atlas server was down
+and has been started onhttp://127.0.0.1:8741 (exec session93982), API readiness
+verified. Current computer-use session has no browsers; creating an iab tab fails
+"Browser is not available: iab". User has been asked to connect a browser.
+See Atlas handoff for exact tooling diagnosis/settings and pending batch steps.
+No new screenshots or data package was created. Keep existing libraries, scores,
+.env and previous delivered ZIPs intact. The future new-only export must use
+Drought display labels, preserve current29 map IDs and include default30 names;
+Outskirts gets no substitute clues. No hosted upload/restart/Discord operation.
