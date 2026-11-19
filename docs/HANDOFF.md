@@ -1194,3 +1194,13 @@ Node tests and29 real map count checks. Updated docs/MANUAL_CLUES.md here only;
 Portle still displays the six uploaded images without computing portal counts.
 Existing PNG packs retain their old four-first captures until recaptured and
 republished. No clue library, player database, settings or hosted bot was changed.
+
+### First-clue minimum clarification — 2026-11-19
+
+User clarified dynamic scaling needs a minimum of four portals first. Atlas now
+reserves four per group and allocates the remaining N-24 with increasing1–6
+weights.30 walls starts4,50 starts5,447 starts24. This supersedes the prior
+one-per-group policy above. Updated MANUAL_CLUES.md; Atlas18 Node tests and all29
+available real map count checks pass. Six clues, final full coverage and existing
+PNG packs remain as before; using new counts requires recapture/republish. No
+library, scores, credentials, bot/host operations or public uploads were made.

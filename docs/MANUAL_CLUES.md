@@ -24,10 +24,13 @@ captures the map viewport without the map-title header or side panels; check the
 image itself for any visible text that would reveal the answer.
 
 Atlas's **Batch clues → Growing groups** option scales all six portal groups to
-each map. It reserves one portal per group when possible, then divides the rest
+each map, with at least four portals in the first clue. It reserves four portals
+per group when possible, then divides the rest
 with increasing weights 1–6. Cumulative captures retain earlier portals and show
-all portals in clue 6. For 50 portal walls, visible counts are 3, 8, 15, 24, 36,
-50; the first clue is not fixed at four. Existing screenshot sets retain their
+all portals in clue 6. A 30-wall map starts with 4; a 50-wall map starts with 5,
+then shows 12, 20, 29, 39, 50; a 447-wall map starts with 24. Maps below 24 walls
+start with four (or all if fewer), then share the rest evenly across five clues.
+Existing screenshot sets retain their
 original counts until recaptured and republished. Portle displays the six uploaded
 images as authored; it does not calculate portal counts while players guess.
 
