@@ -1376,3 +1376,27 @@ authorization via git push origin HEAD:main. Source-only recovery ZIP is ignored
 .local/deploy/Portle-privacy-verification-2026-11-19.zip; it contains no data or
 credentials, and must preserve hosted .env/data. Do not call this a verified
 root-cause resolution until the hosted two-account test confirms isolation.
+
+## Streamlined hosted code updates — 2026-11-19
+
+User described downloading database/clues/.env, doing a clean reinstall, restoring
+those files and starting the bot on every code update. Verified current Bisect
+Git installation documentation: Auto Update pulls Git changes on server start;
+initial repository cloning uses a reinstall. Existing Portle .gitignore excludes
+.env and all data files except data/.gitkeep, confirmed with git ls-files.
+Routine in-place Git pulls therefore preserve the runtime files. No updater code
+or new dependency is needed for an established Git checkout.
+
+Added a Routine code updates section to docs/BISECT_HOSTING.md: one-time repo/main/
+Auto Update/BotStartFile settings, verify .git exists, then normal stop/start and
+console/readiness/score checks. Retain regular independent backups without moving
+data or restoring backups for every code release. Git/authentication failures
+need diagnosis; source-only ZIP overwrite is the in-place fallback. Documented
+that clue updates remain separate and a custom PORTLE_CATALOG override prevents
+bundled roster updates from taking effect. Do not delete data to fix Git pulls.
+
+Asked whether host Auto Update is currently enabled; answer pending during guide
+update. Host settings, checkout/authentication and actual startup script remain
+unverified, so no claim they were configured/tested remotely. No hosted actions,
+database/config/asset edits or live Discord messages. Documentation-only change;
+git diff --check is the appropriate validation, no application tests repeated.

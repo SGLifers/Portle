@@ -145,6 +145,62 @@ Monitor memory during simultaneous games before deciding whether to upgrade the
 256 MB plan. Storage usage and RAM usage are separate. Keep an independent copy
 of the SQLite snapshot and complete clue library, alongside provider backups.
 
+## Routine code updates
+
+Once the host has an existing Git checkout, use Git Auto Update instead of
+reinstalling the server. Bisect documents that Auto Update pulls repository
+changes on each server start. Its reinstall/delete-files instructions are for
+the initial Git clone; do not repeat that initial-install workflow for routine
+updates of an established checkout.
+
+In **Settings → Startup**, configure these once:
+
+| Setting | Value |
+| --- | --- |
+| Git Repo Address | `https://github.com/SGLifers/Portle.git` |
+| Git Branch | `main` |
+| Auto Update | Enabled |
+| BotStartFile | `bot.py` |
+
+Keep the existing working repository authentication and requirements-file/package
+configuration. Do not paste credentials into chat or put them in the Git URL.
+Before the first update with this setup, keep a stopped-bot backup and confirm the
+host has a Git checkout (`.git/`, which may be hidden in the Files panel).
+If it does not, changing Auto Update alone does not establish the initial clone;
+use an in-place source ZIP update below while planning that one-time migration.
+
+For each later code update:
+
+1. Stop the bot.
+2. Start it normally. Auto Update pulls the pushed `main` changes.
+3. Check the console for a successful Git update and bot startup, then verify
+   an existing player's scores still appear. The privacy-verification release
+   prints `Portle private board verification enabled` when ready.
+
+Leave `.env` and the entire `data/` directory on the host. They are excluded
+from Git (`data/.gitkeep` is the only tracked item under `data/`), so a normal
+Git pull does not replace the database, clue images/index or custom map list.
+There is no routine download/re-upload or clean reinstall. Keep independent
+regular backups as a separate operation; updating code does not require restoring
+those backups. Dependency changes still require installing the updated
+requirements through the existing panel package/requirements setup.
+
+If Auto Update is enabled but the console does not show the new code being
+pulled, inspect the Git/authentication error, branch and presence of `.git/`.
+Do not solve a pull failure by deleting live files. Avoid editing tracked code
+in the panel; settings belong in `.env` or Startup variables.
+
+Without a working Git updater, stop the bot, upload/extract a **source-only ZIP
+over the existing application files**, then start it. Preserve existing `.env`
+and `data/`; no clean reinstall or database restore is needed. This updates the
+files supplied in that ZIP. If a future release requires removing obsolete code,
+follow its explicit removal instructions rather than deleting persistent data.
+
+Clue-image changes are independent: transfer a new clue package only when
+updating screenshots. The bundled answer roster updates with code. If you want
+that default roster, remove an old `PORTLE_CATALOG=data/map_names.json` override
+once; a retained custom override remains independent of code updates.
+
 ## Later clue updates
 
 For cross-server result sharing, update/restart and have an Administrator in each
