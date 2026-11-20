@@ -187,6 +187,8 @@ requirements through the existing panel package/requirements setup.
 
 If Auto Update is enabled but the console does not show the new code being
 pulled, inspect the Git/authentication error, branch and presence of `.git/`.
+If you have always reinstalled, first try one ordinary stop/start and inspect
+its Git output; enabling Auto Update does not require repeating the reinstall.
 Do not solve a pull failure by deleting live files. Avoid editing tracked code
 in the panel; settings belong in `.env` or Startup variables.
 

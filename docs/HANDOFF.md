@@ -1395,8 +1395,12 @@ need diagnosis; source-only ZIP overwrite is the in-place fallback. Documented
 that clue updates remain separate and a custom PORTLE_CATALOG override prevents
 bundled roster updates from taking effect. Do not delete data to fix Git pulls.
 
-Asked whether host Auto Update is currently enabled; answer pending during guide
-update. Host settings, checkout/authentication and actual startup script remain
-unverified, so no claim they were configured/tested remotely. No hosted actions,
+User confirmed host Auto Update is already enabled. Next is an ordinary stop/start
+without reinstall, inspecting the Git output and whether the new startup privacy
+marker appears. No failed ordinary update has yet been reported. If it fails,
+request only the Git-related console lines to distinguish missing checkout,
+wrong branch, authentication or local tracked-file conflicts. Other host settings,
+checkout/authentication and actual startup script remain unverified, so no claim
+they were configured/tested remotely. No hosted actions,
 database/config/asset edits or live Discord messages. Documentation-only change;
 git diff --check is the appropriate validation, no application tests repeated.
