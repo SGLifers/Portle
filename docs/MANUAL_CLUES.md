@@ -59,6 +59,14 @@ and stays frozen. A newly published map or revised set affects future puzzles an
 new practice rounds, not the already-started daily. Existing rounds retain their
 original six image hashes and still work after editing/unpublishing.
 
+If replacing the image folder causes **A saved clue image is missing**, restore
+the PNG files referenced by the saved puzzle into `data/clues/images/`, merging
+with the new files and keeping the new `index.json`. For the current shared
+daily, only its six original images are needed. New practice/future newly
+selected puzzles use the new published sets. Earlier saved rounds may still need
+their own old images. No database replacement is needed. Resetting a player's
+guesses retains the frozen puzzle and therefore does not fix missing files.
+
 ## Player behavior
 
 - Six guesses. Each miss or skip unlocks the next screenshot.

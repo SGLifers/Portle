@@ -1404,3 +1404,31 @@ checkout/authentication and actual startup script remain unverified, so no claim
 they were configured/tested remotely. No hosted actions,
 database/config/asset edits or live Discord messages. Documentation-only change;
 git diff --check is the appropriate validation, no application tests repeated.
+
+## Missing saved clue recovery — current daily only, 2026-11-19
+
+User replaced screenshots and reported a missing saved clue image. Read supplied
+backup SQLite strictly with mode=ro/query_only; integrity check passed. Frozen
+snapshots reference108 unique old images absent from the new174-image package;
+all are available in the supplied backup's clue image folder. Initially prepared
+an images-only108-file recovery ZIP, then user explicitly narrowed the repair to
+today's shared puzzle. Deliver the six-file package below for the immediate fix.
+
+/home/lambchopper67/Downloads/Portle-todays-clue-images-2026-11-19.zip
+contains exactly six hashed PNGs under data/clues/images,1.02MiB,
+SHA2564180c281990e506035ca782d80f46e4adf018227e1af6da2bcf26bd6c3588513.
+RESTORE.txt/VALIDATION.json and unpacked PNGs are in the same-named Downloads
+folder. ZIP has no database, index, .env or code. Stop bot, extract at server root
+and MERGE into existing images; keep all new files/index/database/config, restart
+and /portle play. No reset/reinstall or database upload. Current daily remains
+frozen; new practice/future newly selected puzzles use the new published sets.
+
+Verified ZIP CRC/path allowlist/hash identity and simulated merge over the new
+174-image library, yielding180 images while preserving29 published maps and
+index bytes. On a temporary backup copy only, actual GameStore.start/get/image
+resumed every supplied current-day state and loaded its unlocked images with
+unchanged progress. Supplied database SHA256 and source indexes unchanged; no
+private IDs, answers or saved player progress published. Detailed validation
+stays private in the output folder. No hosted actions performed. Added recovery
+guidance to MANUAL_CLUES; no application changes/tests needed beyond real-image
+recovery checks. Larger108-image recovery stays local if older rounds need it.
