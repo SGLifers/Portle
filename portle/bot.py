@@ -57,7 +57,7 @@ def round_embed(state,projection,clue_index=None):
     mode='Daily · '+data['day'] if data['mode']=='daily' else 'Practice'
     manual=data['clueSource']=='manual'
     description=f"{mode} · <@{state['user_id']}>\nClue **{data['turn']}/6** · "+(f"Screenshot **{clue_index or revealed_stage(state)}** of **{revealed_stage(state)}** revealed." if manual else f"**{data['portalCount']}** portals revealed.")
-    if active:description+='\nChoose a map from the dropdown to submit a guess, or reveal the next clue. Each miss/skip uses one guess.'
+    if active:description+='\nChoose a map from Arena, Simulation or Royale to submit a guess, or reveal the next clue. Each miss/skip uses one guess.'
     else:description+='\n**'+data['answer']+'**\n```\n'+data['share']+'\n```'
     embed=discord.Embed(title=title,description=description,color=0x78E8D1 if data['status']!='lost' else 0xE8B777)
     if data['attempts']:
@@ -168,12 +168,23 @@ class PlayPortleView(discord.ui.View):
         await report_error(interaction,'Could not open your puzzle. Your progress is saved; try Play Portle again or /portle play.')
 
 
+MAP_CATEGORIES=('Arena','Simulation','Royale')
+ROYALE_MAP_IDS=frozenset({'MAP_Erosion','MAP_Fracture','MAP_Glacier','MAP_Inferno','MAP_Outskirts','MAP_Sanctum'})
+
+
+def map_category(item):
+    # UI classification stays outside snapshots/revisions so daily selection is unchanged.
+    if item['id'].startswith('MAP_Simulation_'):return 'Simulation'
+    return 'Royale' if item['id'] in ROYALE_MAP_IDS else 'Arena'
+
+
 class MapGuessSelect(discord.ui.Select):
-    def __init__(self,board,names,finished):
-        super().__init__(placeholder='Choose a map to submit your guess…' if names else 'No maps remaining',
+    def __init__(self,board,names,finished,category,row):
+        if len(names)>25:raise GameError(f'{category} has more than 25 remaining maps. Use /portle guess to enter a map name.')
+        super().__init__(placeholder=f'{category} — choose a map to guess' if names else f'{category} — no maps remaining',
             options=[discord.SelectOption(label=name,value=name) for name in names] or [discord.SelectOption(label='No maps remaining',value='none')],
-            min_values=1,max_values=1,disabled=finished or not names,row=0)
-        self.board=board
+            min_values=1,max_values=1,disabled=finished or not names,row=row)
+        self.board=board;self.category=category
 
     async def callback(self,interaction):
         await interaction.response.defer(ephemeral=True,thinking=False)
@@ -185,23 +196,20 @@ class MapGuessSelect(discord.ui.Select):
 
 
 class RoundView(discord.ui.View):
-    def __init__(self,store,state,projection='iso',clue_index=None,map_page=0):
+    def __init__(self,store,state,projection='iso',clue_index=None):
         super().__init__(timeout=900)
         self.store=store;self.round_id=state['id'];self.owner=state['user_id'];self.version=state['version'];self.projection=projection;self.mode=state['mode']
         finished=state['status']!='playing'
         if not finished or self.mode!='daily':self.remove_item(self.share_results)
         guessed={a['map_id'] for a in state['attempts'] if a['kind']=='guess'}
-        guessed_names={m['name'] for m in store.catalog.maps if m['id'] in guessed}
-        names=[name for name in store.catalog.choices() if name not in guessed_names]
-        self.map_pages=max(1,(len(names)+24)//25)
-        self.map_page=max(0,min(map_page,self.map_pages-1))
-        self.map_select=MapGuessSelect(self,names[self.map_page*25:(self.map_page+1)*25],finished)
-        self.add_item(self.map_select)
-        if self.map_pages<=1:self.remove_item(self.previous_maps);self.remove_item(self.next_maps)
-        else:
-            self.previous_maps.disabled=finished or self.map_page==0
-            self.next_maps.disabled=finished or self.map_page>=self.map_pages-1
-            self.map_select.placeholder=f'Choose a map to guess · page {self.map_page+1}/{self.map_pages}'
+        self.map_selects={}
+        for row,category in enumerate(MAP_CATEGORIES):
+            names=sorted((m['name'] for m in store.catalog.maps if m['id'] not in guessed and map_category(m)==category),key=str.casefold)
+            select=MapGuessSelect(self,names,finished,category,row)
+            self.map_selects[category]=select;self.add_item(select)
+        self.arena_select=self.map_selects['Arena']
+        self.simulation_select=self.map_selects['Simulation']
+        self.royale_select=self.map_selects['Royale']
         self.skip_button.disabled=finished
         self.projection_button.label='Top view' if projection=='iso' else 'Isometric view'
         self.clue_index=clue_index or revealed_stage(state)
@@ -219,22 +227,7 @@ class RoundView(discord.ui.View):
                 await report_error(interaction,ADMIN_ONLY_MESSAGE);return False
         return True
 
-    async def change_map_page(self,interaction,offset):
-        await interaction.response.defer(ephemeral=True,thinking=False)
-        try:
-            await verify_private_board(interaction,self.owner)
-            state=await asyncio.to_thread(self.store.get,self.round_id,interaction.user.id)
-            if state['version']!=self.version or state['status']!='playing':raise GameError('This board is out of date. Use /portle play to refresh your daily round.')
-            await interaction.edit_original_response(view=RoundView(self.store,state,self.projection,self.clue_index,self.map_page+offset))
-        except GameError as exc:await report_error(interaction,str(exc))
-
-    @discord.ui.button(label='Previous maps',style=discord.ButtonStyle.secondary,row=1)
-    async def previous_maps(self,interaction,button):await self.change_map_page(interaction,-1)
-
-    @discord.ui.button(label='Next maps',style=discord.ButtonStyle.secondary,row=1)
-    async def next_maps(self,interaction,button):await self.change_map_page(interaction,1)
-
-    @discord.ui.button(label='Reveal more / skip',style=discord.ButtonStyle.secondary,row=2)
+    @discord.ui.button(label='Reveal more / skip',style=discord.ButtonStyle.secondary,row=3)
     async def skip_button(self,interaction,button):
         await interaction.response.defer(ephemeral=True,thinking=False)
         try:
@@ -243,28 +236,28 @@ class RoundView(discord.ui.View):
             await show_round(interaction,self.store,state,self.projection,replace=True,announce=True)
         except GameError as exc:await report_error(interaction,str(exc))
 
-    @discord.ui.button(label='Top view',style=discord.ButtonStyle.secondary,row=2)
+    @discord.ui.button(label='Top view',style=discord.ButtonStyle.secondary,row=3)
     async def projection_button(self,interaction,button):
         await interaction.response.defer(ephemeral=True,thinking=False)
         await verify_private_board(interaction,self.owner)
         state=await asyncio.to_thread(self.store.get,self.round_id,interaction.user.id)
         await show_round(interaction,self.store,state,'top' if self.projection=='iso' else 'iso',replace=True)
 
-    @discord.ui.button(label='Earlier clue',style=discord.ButtonStyle.secondary,row=2)
+    @discord.ui.button(label='Earlier clue',style=discord.ButtonStyle.secondary,row=3)
     async def earlier_button(self,interaction,button):
         await interaction.response.defer(ephemeral=True,thinking=False)
         await verify_private_board(interaction,self.owner)
         state=await asyncio.to_thread(self.store.get,self.round_id,interaction.user.id)
         await show_round(interaction,self.store,state,replace=True,clue_index=max(1,self.clue_index-1))
 
-    @discord.ui.button(label='Later clue',style=discord.ButtonStyle.secondary,row=2)
+    @discord.ui.button(label='Later clue',style=discord.ButtonStyle.secondary,row=3)
     async def later_button(self,interaction,button):
         await interaction.response.defer(ephemeral=True,thinking=False)
         await verify_private_board(interaction,self.owner)
         state=await asyncio.to_thread(self.store.get,self.round_id,interaction.user.id)
         await show_round(interaction,self.store,state,replace=True,clue_index=min(revealed_stage(state),self.clue_index+1))
 
-    @discord.ui.button(label='Share results',style=discord.ButtonStyle.success,row=3)
+    @discord.ui.button(label='Share results',style=discord.ButtonStyle.success,row=4)
     async def share_results(self,interaction,button):
         await interaction.response.defer(ephemeral=True,thinking=True)
         try:
@@ -396,7 +389,7 @@ class PortleCommands(app_commands.Group):
         clues=('Six guesses and six manually supplied screenshots. Revisit revealed clues for free.\n' if self.store.clues else 'Six guesses. Clues show 1, 2, 4, 8, 16, then all portals. Top/isometric views are free.\n')
         text=(
             '**PORTLE** — guess the arena from real portal placements.\n'
-            +clues+'Choose a map from the board dropdown to submit a guess. Wrong guesses and skips reveal the next clue. Invalid or repeated names are free.\n'
+            +clues+'Choose a map from the Arena, Simulation or Royale dropdown to submit a guess. Wrong guesses and skips reveal the next clue. Invalid or repeated names are free.\n'
             +
             f'Daily resets at midnight **{self.store.zone.key}**; everyone gets the same map with private progress.\n'
             '`/portle play` daily · `/portle practice` admins only · `/portle guess` guess daily · `/portle maps` answer list · `/portle stats` records.\n'

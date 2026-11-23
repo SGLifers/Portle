@@ -20,6 +20,23 @@ this manual workflow. Python 3.12+ is recommended; dependencies stay in `.venv`.
 See [manual clue guide](docs/MANUAL_CLUES.md) for the full capture/edit/publish
 workflow, image limits and backup instructions.
 
+## Windows local setup
+
+From PowerShell in this repository:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe -m portle doctor
+.\start_editor.ps1
+```
+
+Open http://127.0.0.1:8742/manage. The editor needs no Discord token or player
+database. The clone starts with an empty clue library. Windows uses a byte-range
+file lock for library writes and the bundled `tzdata` dependency for timezones.
+See [local reproduction and code review](docs/LOCAL_REVIEW.md) for this checkout's
+validation and remaining findings.
+
 ## Capture clues in Portal Atlas
 
 Use the Atlas portal-list checkboxes, **Hide all**, **Show all** or **Only selected**
@@ -97,12 +114,15 @@ the existing SQLite database. New configurations begin with the next scheduled
 post. See [scheduled announcements](docs/ANNOUNCEMENTS.md) for scoring, ties,
 closed-period map reveals, catch-up and delivery recovery behavior.
 
-The board's alphabetical map dropdown works in daily and practice. Selecting a
+The board has three alphabetical map dropdowns: **Arena** (18 maps),
+**Simulation** (6 maps), and **Royale** (6 maps), in daily and practice. Selecting a
 map immediately submits that guess. Already-guessed maps are removed from the
 dropdown. This follows the current round's saved history and resets for new practice rounds. All other
 accepted names remain available, including maps without published clues.
-Discord shows Previous/Next maps controls if more than 25 unguessed names remain;
-browsing these pages is free. The optional `/portle guess map_name` command
+All three categories are visible without map page controls. Royale contains
+Drought, Fracture, Glacier, Inferno, Outskirts and Sanctum. Empty categories remain
+visible but disabled; completed rounds disable all three menus.
+The optional `/portle guess map_name` command
 still supports autocomplete. Earlier/Later clue buttons revisit unlocked
 screenshots. Private board controls expire after
 15 minutes or a bot restart; `/portle play` restores the daily, while practice

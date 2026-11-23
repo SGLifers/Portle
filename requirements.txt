@@ -1,3 +1,4 @@
 discord.py==2.7.1
 Pillow==13.0.0
 python-dotenv==1.2.4
+tzdata==2026.6; sys_platform == 'win32'

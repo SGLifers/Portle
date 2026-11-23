@@ -1,6 +1,5 @@
 """Local authoring library. Published screenshots are immutable round snapshots."""
 from contextlib import contextmanager
-import fcntl
 import hashlib
 from io import BytesIO
 import json
@@ -12,6 +11,29 @@ import threading
 import warnings
 from PIL import Image,ImageOps,UnidentifiedImageError
 from .game import GameError
+
+if os.name=='nt':
+    import msvcrt
+else:
+    import fcntl
+
+
+@contextmanager
+def library_lock(path):
+    """Serialize index edits across processes on Windows and Unix."""
+    with path.open('a+b') as lock:
+        if os.name=='nt':
+            if path.stat().st_size==0:
+                lock.write(b'\0');lock.flush()
+            lock.seek(0)
+            msvcrt.locking(lock.fileno(),msvcrt.LK_LOCK,1)
+        else:fcntl.flock(lock,fcntl.LOCK_EX)
+        try:yield
+        finally:
+            if os.name=='nt':
+                lock.seek(0)
+                msvcrt.locking(lock.fileno(),msvcrt.LK_UNLCK,1)
+            else:fcntl.flock(lock,fcntl.LOCK_UN)
 
 MAX_BYTES=8*1024*1024
 MAX_PIXELS=24_000_000
@@ -30,8 +52,8 @@ class ClueLibrary:
         return data
     @contextmanager
     def _edit(self):
-        with self._thread_lock,(self.root/'index.lock').open('a') as lock:
-            fcntl.flock(lock,fcntl.LOCK_EX);data=self._read()
+        with self._thread_lock,library_lock(self.root/'index.lock'):
+            data=self._read()
             yield data
             path=self.root/('index-'+secrets.token_hex(12)+'.tmp')
             try:

@@ -1,5 +1,49 @@
 # Portle handoff — 2026-11-03
 
+## Source publication — 2026-11-23
+
+User explicitly authorized pushing the local changes to GitHub. Fetched origin
+and verified main still matches the reviewed base 6763f1a. Publication targets
+origin/main and includes the three category dropdowns, Windows compatibility,
+tests and documentation. Author identity uses the authenticated GitHub account's
+no-reply address for this commit only; no global Git settings are changed.
+The latest full suite passed 157 tests with three private-asset skips, and staged
+whitespace checks passed. No credentials, player databases, clue libraries,
+private screenshots or runtime logs are included. This source update does not
+itself restart or verify the hosted Discord bot. Earlier uncommitted/local-only
+notes below describe the state before this publication request.
+
+## Three map category dropdowns — 2026-11-22
+
+User authorized replacing map pagination with Arena, Simulation and Royale
+dropdowns. Board now shows all three, alphabetically sorted, with 18/6/6 names
+in the bundled roster. Royale: Drought (MAP_Erosion), Fracture, Glacier, Inferno,
+Outskirts and Sanctum. Classification lives in the Discord UI, leaving catalog
+revisions, daily selection and frozen snapshots unchanged. Removed map page
+controls; selecting an option still immediately submits a guess. Empty categories
+stay visible/disabled; all menus disable after completion. Three select rows plus
+clue controls and Share results fit Discord's five-row message layout.
+
+Updated board/help copy and operator instructions. Offline Discord tests cover
+full roster coverage, each category's guess callback, restart filtering, empty and
+finished menus, component limits and fail-closed privacy checks for every menu.
+Full suite: 157 tests, OK with three private-asset checks skipped; log
+.local/tests-three-dropdowns.log. No live Discord send, hosted deployment or push.
+Changes remain local/uncommitted; Git author email is not configured here.
+
+## Windows local reproduction and review — 2026-11-22
+
+This checkout was cloned from SGLifers/Portle at
+6763f1ac686671ce4a662efd553fb685730a917c into the Windows Splitgate workspace,
+on branch codex/local-repro-review. See LOCAL_REVIEW.md for findings, setup,
+validation and runtime paths. Local compatibility changes add Windows library
+locking, Windows timezone data and a PowerShell editor launcher. No upstream
+push, live Discord connection, credentials, existing clue data or hosted edits.
+The empty editor is running on loopback port 8742; .local/editor.pid and logs
+record this checkout's process. Historical Linux process notes below do not
+describe this Windows clone. Thread-specific result permissions remain an open
+review finding.
+
 ## Outcome and user intent
 
 The user requested a separate Wordle-style Discord game: identify a Splitgate arena

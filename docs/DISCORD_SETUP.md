@@ -131,11 +131,16 @@ Each automatic post includes Play Portle. Player attribution does not send a
 mention notification. Completed private daily boards include **Share results**;
 `/portle share` is a shortcut for posting in the current server's results channel.
 Guessing with `/portle guess` always targets the
-daily round; use the board's dropdown for practice guesses. The dropdown lists
-unguessed names alphabetically, including maps without published clues. Guessed
-maps disappear from the current round's dropdown, including after resuming the
-daily. New practice starts with the full list. Free Previous/Next maps controls
-appear when more than 25 unguessed names remain.
+daily round; use the board's dropdowns for practice guesses. The **Arena**,
+**Simulation** and **Royale** menus list unguessed names alphabetically, including
+maps without published clues. Guessed maps disappear from their category,
+including after resuming the daily. New practice starts with the full list.
+There are no map page controls. Empty categories stay visible but disabled,
+and all three menus disable when the round finishes. Custom catalogs currently
+classify Simulation IDs by the `MAP_Simulation_` prefix and the six bundled
+Royale IDs explicitly; other IDs default to Arena. Each category supports at most
+25 remaining names; an oversized custom category produces an explicit error
+directing daily players to `/portle guess`, rather than silently hiding answers.
 
 Practice requires the invoking player's **Administrator** server permission.
 Members without it receive a private explanation directing them to `/portle play`.
