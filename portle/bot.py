@@ -57,7 +57,7 @@ def round_embed(state,projection,clue_index=None):
     mode='Daily · '+data['day'] if data['mode']=='daily' else 'Practice'
     manual=data['clueSource']=='manual'
     description=f"{mode} · <@{state['user_id']}>\nClue **{data['turn']}/6** · "+(f"Screenshot **{clue_index or revealed_stage(state)}** of **{revealed_stage(state)}** revealed." if manual else f"**{data['portalCount']}** portals revealed.")
-    if active:description+='\nChoose a map from Arena, Simulation or Royale to submit a guess, or reveal the next clue. Each miss/skip uses one guess.'
+    if active:description+='\n\n**🟢 Make your guess using a map menu below.**\nSelecting a map submits your guess. A wrong guess or skip uses one guess.'
     else:description+='\n**'+data['answer']+'**\n```\n'+data['share']+'\n```'
     embed=discord.Embed(title=title,description=description,color=0x78E8D1 if data['status']!='lost' else 0xE8B777)
     if data['attempts']:
@@ -181,7 +181,8 @@ def map_category(item):
 class MapGuessSelect(discord.ui.Select):
     def __init__(self,board,names,finished,category,row):
         if len(names)>25:raise GameError(f'{category} has more than 25 remaining maps. Use /portle guess to enter a map name.')
-        super().__init__(placeholder=f'{category} — choose a map to guess' if names else f'{category} — no maps remaining',
+        placeholder=f'{category} — round finished' if finished else f'🟢 GUESS — {category}' if names else f'{category} — no maps remaining'
+        super().__init__(placeholder=placeholder,
             options=[discord.SelectOption(label=name,value=name) for name in names] or [discord.SelectOption(label='No maps remaining',value='none')],
             min_values=1,max_values=1,disabled=finished or not names,row=row)
         self.board=board;self.category=category
@@ -227,7 +228,7 @@ class RoundView(discord.ui.View):
                 await report_error(interaction,ADMIN_ONLY_MESSAGE);return False
         return True
 
-    @discord.ui.button(label='Reveal more / skip',style=discord.ButtonStyle.secondary,row=3)
+    @discord.ui.button(label='Skip guess (costs 1)',style=discord.ButtonStyle.secondary,row=4)
     async def skip_button(self,interaction,button):
         await interaction.response.defer(ephemeral=True,thinking=False)
         try:

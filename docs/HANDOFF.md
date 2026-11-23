@@ -1,5 +1,20 @@
 # Portle handoff — 2026-11-03
 
+## Guessing call to action — 2026-11-23
+
+User reported that muted dropdowns make skipping look like the primary action.
+Discord's String Select schema has no color/style setting, so active menus now
+read 🟢 GUESS — Arena/Simulation/Royale, and the private board emphasizes guessing
+with a bold instruction. Empty menus remain neutral and disabled; finished menus
+say round finished without the active guessing prompt. Skip is renamed
+Skip guess (costs 1), retains secondary styling, and moves below free clue
+navigation to row 4. Completed daily Share results shares that row with disabled
+skip, preserving the five-row limit. No gameplay or privacy behavior changed.
+Validation: all 46 offline Discord tests pass, including category coverage,
+privacy guards, stale/replayed guesses and completed board controls. No live
+Discord rendering was tested. Source publication follows the user's existing
+GitHub push authorization; hosted restart/reopening boards remains separate.
+
 ## Source publication — 2026-11-23
 
 User explicitly authorized pushing the local changes to GitHub. Fetched origin

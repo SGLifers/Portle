@@ -497,7 +497,7 @@ class DiscordTests(unittest.IsolatedAsyncioTestCase):
             state=self.store.act(state['id'],'11',state['version'],guess=name)
         view=RoundView(self.store,state)
         self.assertEqual(state['status'],'won');self.assertTrue(view.arena_select.disabled)
-        self.assertEqual(view.arena_select.placeholder,'Arena — no maps remaining')
+        self.assertEqual(view.arena_select.placeholder,'Arena — round finished')
         components=[c for row in view.to_components() for c in row['components'] if c['type']==3]
         self.assertEqual(len(components[0]['options']),1);self.assertTrue(components[0]['disabled'])
     async def test_dropdown_rejects_foreign_stale_and_repeated_guesses_without_using_a_turn(self):
@@ -526,7 +526,7 @@ class DiscordTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(sorted(all_names),sorted(catalog.choices()))
         self.assertEqual(len(set(all_names)),30)
         for category,select in view.map_selects.items():
-            self.assertTrue(select.placeholder.startswith(category+' —'))
+            self.assertEqual(select.placeholder,'🟢 GUESS — '+category)
             self.assertTrue(all(not o.default and o.description is None for o in select.options))
         self.assertLessEqual(len(view.to_components()),5)
         self.assertFalse(any(getattr(c,'label',None) in ('Previous maps','Next maps') for c in view.children))
