@@ -122,9 +122,6 @@ accepted names remain available, including maps without published clues.
 All three categories are visible without map page controls. Royale contains
 Drought, Fracture, Glacier, Inferno, Outskirts and Sanctum. Empty categories remain
 visible but disabled; completed rounds disable all three menus.
-Active menus start with **🟢 GUESS** to emphasize guessing. Discord controls their
-background color. The separate **Skip guess (costs 1)** button sits below clue
-navigation; selecting a map remains an immediate submission.
 The optional `/portle guess map_name` command
 still supports autocomplete. Earlier/Later clue buttons revisit unlocked
 screenshots. Private board controls expire after
